@@ -119,6 +119,18 @@ fi
 "${DC[@]}" down --remove-orphans >/dev/null 2>&1 || true
 "${DC[@]}" rm -sf "$CONTAINER" >/dev/null 2>&1 || true
 
+# Workaround: on some Docker 28 + AppArmor setups the daemon returns
+# "permission denied" when stopping a container that runs as a non-root user.
+# Since the compose `user:` override makes the in-container init process owned
+# by the host user, we can kill it from the host and let the daemon reconcile.
+stuck_pid=$(docker inspect -f '{{if eq .State.Status "running"}}{{.State.Pid}}{{end}}' "$CONTAINER" 2>/dev/null || true)
+if [ -n "${stuck_pid:-}" ] && [ "$stuck_pid" != "0" ]; then
+  echo "Container is still running (pid $stuck_pid); docker stop refused. Killing from host..."
+  kill -9 "$stuck_pid" 2>/dev/null || true
+  sleep 1
+  docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+fi
+
 if [ "$CLEAR" = "1" ]; then
   if [ -d data ]; then
     if ! rm -rf data 2>/dev/null; then

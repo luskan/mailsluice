@@ -13,6 +13,7 @@ import type { Config } from './config.ts';
 import type { Db } from './db/index.ts';
 import { registerAuthRoutes } from './auth/routes.ts';
 import { registerAccountRoutes } from './auth/account_routes.ts';
+import { registerBasicAuth } from './auth/basic_auth.ts';
 import { requireLogin } from './auth/middleware.ts';
 import { registerAdminUserRoutes } from './admin/users_routes.ts';
 import { registerAdminDestinationRoutes } from './admin/destinations_routes.ts';
@@ -62,6 +63,10 @@ export async function buildApp(cfg: Config, db: Db): Promise<FastifyInstance> {
   app.decorate('syncManager', undefined as SyncManager | undefined);
   app.decorate('testConnection', realTestConnection);
 
+  if (cfg.APP_HTTP_AUTH && cfg.APP_HTTP_AUTH.length > 0) {
+    registerBasicAuth(app, cfg.APP_HTTP_AUTH);
+  }
+
   await app.register(fastifyFormbody);
   await app.register(fastifyCookie);
   await app.register(fastifySession, {
@@ -93,7 +98,11 @@ export async function buildApp(cfg: Config, db: Db): Promise<FastifyInstance> {
     decorateReply: false,
   });
 
-  app.get('/health', async () => ({ ok: true }));
+  app.route({
+    method: ['GET', 'HEAD'],
+    url: '/health',
+    handler: async () => ({ ok: true }),
+  });
 
   registerDestination(GmailFactory);
 

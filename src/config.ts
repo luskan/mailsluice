@@ -19,6 +19,9 @@ const schema = z.object({
   APP_TRUST_PROXY: z.string().default(''),
   APP_COOKIE_SECURE: z.enum(['auto', 'true', 'false']).default('auto'),
   APP_EVENT_LOG_MAX_ROWS: z.coerce.number().int().min(100).max(1_000_000).default(10_000),
+  // Optional HTTP Basic Auth wrapper, user:password. When set, every request
+  // except /health is 401'd until the browser sends the matching credential.
+  APP_HTTP_AUTH: z.string().optional(),
 });
 
 export type Config = z.infer<typeof schema> & {

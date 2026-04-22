@@ -79,7 +79,12 @@ All in `.env` (see `.env.example`). Minimum:
 
 Optional: `APP_PORT`, `APP_HOST`, `APP_DATABASE_PATH`, `APP_TRUST_PROXY`,
 `APP_COOKIE_SECURE`, `APP_EVENT_LOG_MAX_ROWS`,
-`APP_ENCRYPTION_KEY_PREV[_FILE]`.
+`APP_ENCRYPTION_KEY_PREV[_FILE]`, `APP_HTTP_AUTH`.
+
+Set `APP_HTTP_AUTH=user:password` to require browser Basic Auth in front of
+every page (except `/health`). It's a moat, not a wall - hides the login page
+from scanners and adds a layer on top of the regular login. Use a long random
+password, and only over HTTPS.
 
 The `_FILE` variants read the key from a file path (systemd
 `LoadCredentialEncrypted`, Docker secret, etc.) instead of the env var.
