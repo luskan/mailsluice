@@ -1,0 +1,13 @@
+<%- include('../_header', { title: 'Gmail not configured', user, csrfToken }) %>
+
+<h1>Gmail not configured</h1>
+<div class="card error">
+  <p>An administrator must configure the Gmail OAuth client before users can connect their Gmail accounts.</p>
+  <% if (user.isAdmin) { %>
+    <p><a class="btn" href="/admin/destinations/gmail">Configure Gmail OAuth now</a></p>
+  <% } else { %>
+    <p class="muted">Please ask an administrator to set this up.</p>
+  <% } %>
+</div>
+
+<%- include('../_footer') %>

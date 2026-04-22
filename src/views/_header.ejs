@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= typeof title !== 'undefined' ? title : 'Mailsluice' %></title>
+  <link rel="stylesheet" href="/public/styles.css">
+</head>
+<body>
+  <nav>
+    <strong>Mailsluice</strong>
+    <% if (typeof user !== 'undefined' && user) { %>
+      <a href="/">Home</a>
+      <a href="/sources">Sources</a>
+      <a href="/destinations">Destination</a>
+      <a href="/account/password">Password</a>
+      <% if (user.isAdmin) { %>
+        <a href="/admin/users">Users</a>
+        <a href="/admin/audit">Audit</a>
+        <a href="/admin/events">Events</a>
+      <% } %>
+      <form method="POST" action="/logout" class="nav-logout">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="secondary">Logout (<%= user.username %>)</button>
+      </form>
+    <% } %>
+  </nav>
+  <main>

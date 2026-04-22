@@ -1,0 +1,11 @@
+<%- include('../_header', { title: 'Admin - Gmail OAuth', user, csrfToken }) %>
+
+<h1>Gmail OAuth client</h1>
+
+<% if (flash) { %>
+  <div class="card ok"><%= flash %></div>
+<% } %>
+
+<%- include('_gmail_oauth_panel', { csrfToken, flash, configured, client_id, client_secret_mask, redirect_uri, suggested_origin, suggested_redirect_uri }) %>
+
+<%- include('../_footer') %>

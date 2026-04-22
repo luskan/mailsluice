@@ -1,0 +1,49 @@
+<%- include('../_header', { title: 'Destination', user, csrfToken }) %>
+
+<h1>Destination</h1>
+
+<% if (flash) { %>
+  <div class="card ok"><%= flash %></div>
+<% } %>
+
+<% if (user.isAdmin) { %>
+  <h2 style="margin-top:1.5rem;">Gmail OAuth client <span class="muted small" style="font-weight:400;">(admin)</span></h2>
+  <%- include('../admin/_gmail_oauth_panel', { csrfToken, flash: null, configured, client_id, client_secret_mask, redirect_uri, suggested_origin, suggested_redirect_uri }) %>
+  <hr style="border: 0; border-top: 1px solid var(--border); margin: 2rem 0;">
+  <h2>Your connected mailbox</h2>
+<% } %>
+
+<% if (destinations.length === 0) { %>
+  <div class="card">
+    <p>No destination connected yet. Mail imported from your sources is injected into this mailbox.</p>
+    <% if (adminConfigured) { %>
+      <p><a class="btn" href="/destinations/gmail/connect">Connect Gmail</a></p>
+    <% } else { %>
+      <p class="error">Gmail is not available yet -- an admin must configure OAuth credentials above
+      <% if (!user.isAdmin) { %>. Please ask an administrator to set this up<% } %>.</p>
+    <% } %>
+  </div>
+<% } else { %>
+  <% const d = destinations[0]; %>
+  <div class="card">
+    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+      <div>
+        <div class="muted small" style="text-transform:uppercase; letter-spacing:0.06em;"><%= d.type %></div>
+        <div style="font-size:1.15rem; font-weight:600; margin-top:0.25rem;"><%= d.account_identifier || 'connected' %></div>
+        <div class="muted small" style="margin-top:0.25rem;">
+          Connected <span title="<%= d.created_at || '' %>"><%= d.created_at_display %></span>
+          <% if (!d.enabled) { %> &middot; <span class="error">disabled</span><% } %>
+        </div>
+      </div>
+      <form method="POST" action="/destinations/<%= d.id %>/disconnect">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="danger">Disconnect</button>
+      </form>
+    </div>
+    <p class="muted small" style="margin-top:1rem;">
+      Disconnecting revokes this Mailsluice's OAuth token with Google and removes any sources attached to this destination.
+    </p>
+  </div>
+<% } %>
+
+<%- include('../_footer') %>

@@ -1,0 +1,102 @@
+<%- include('../_header', { title: source ? 'Edit source' : 'Add source', user, csrfToken }) %>
+
+<h1><%= source ? 'Edit source' : 'Add source' %></h1>
+
+<% if (flash) { %>
+  <div class="card error"><%= flash %></div>
+<% } %>
+
+<% if (destinations.length === 0) { %>
+  <div class="card error">You need to connect a destination before adding a source. <a href="/destinations">Go to destinations</a>.</div>
+<% } else { %>
+  <details class="card" <%= source ? '' : 'open' %>>
+    <summary><strong>Port and TLS cheat-sheet</strong></summary>
+    <table style="margin-top:0.5rem;">
+      <thead><tr><th>Protocol</th><th>Port</th><th>Use TLS</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>IMAP</td><td><code>993</code></td><td>yes</td><td>Implicit TLS -- the default, use this.</td></tr>
+        <tr><td>IMAP</td><td><code>143</code></td><td>no</td><td>Plaintext; only acceptable on a private network you trust.</td></tr>
+        <tr><td>POP</td><td><code>995</code></td><td>yes</td><td>Implicit TLS -- the default, use this.</td></tr>
+        <tr><td>POP</td><td><code>110</code></td><td>no</td><td>Plaintext; only on trusted networks.</td></tr>
+      </tbody>
+    </table>
+    <p class="muted">If you see <em>"wrong version number"</em> or an SSL error, you have TLS ticked with a plaintext port (or vice versa). Match the combo above. STARTTLS (TLS on port 143 / 110 after a plaintext handshake) is not currently supported.</p>
+  </details>
+
+  <form class="stack" id="source-form" method="POST" action="<%= source ? `/sources/${source.id}` : '/sources' %>">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <% if (source) { %>
+      <input type="hidden" name="source_id" value="<%= source.id %>">
+    <% } %>
+    <label>Name <input type="text" name="name" value="<%= source ? source.name : '' %>" required></label>
+    <label>Type
+      <select name="type" required>
+        <option value="imap" <%= source && source.type === 'imap' ? 'selected' : '' %>>IMAP</option>
+        <option value="pop" <%= source && source.type === 'pop' ? 'selected' : '' %>>POP</option>
+      </select>
+    </label>
+    <label>Host <input type="text" name="host" value="<%= source ? source.host : '' %>" required></label>
+    <label>Port <input type="number" name="port" value="<%= source ? source.port : 993 %>" required></label>
+    <label><input type="checkbox" name="use_tls" value="1" <%= !source || source.use_tls === 1 ? 'checked' : '' %>> Use TLS</label>
+    <label>Username <input type="text" name="username" value="<%= source ? source.username : '' %>" required autocomplete="off"></label>
+    <label>Password <input type="password" name="password" autocomplete="new-password" placeholder="<%= source ? '(leave blank to keep current)' : '' %>"></label>
+    <label>Destination
+      <select name="destination_id" required>
+        <% destinations.forEach(function(d) { %>
+          <option value="<%= d.id %>" <%= source && source.destination_id === d.id ? 'selected' : '' %>><%= d.type %>: <%= d.account_identifier || ('id ' + d.id) %></option>
+        <% }); %>
+      </select>
+    </label>
+    <label>Destination tag (Gmail label) <input type="text" name="destination_tag" value="<%= source ? source.destination_tag : '' %>" placeholder="External/Yahoo" required></label>
+    <label>Poll interval (seconds, POP only) <input type="number" name="poll_interval_seconds" value="<%= source && source.poll_interval_seconds ? source.poll_interval_seconds : 300 %>"></label>
+
+    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+      <button type="submit"><%= source ? 'Save changes' : 'Add source' %></button>
+      <button type="button" id="test-btn" class="secondary">Test connection</button>
+      <span id="test-result" class="muted" aria-live="polite"></span>
+    </div>
+    <p class="muted">Saving also runs a connection test; if it fails, nothing is stored. Use <em>Test connection</em> to check without saving.</p>
+  </form>
+
+  <script>
+  (function () {
+    var form = document.getElementById('source-form');
+    var btn = document.getElementById('test-btn');
+    var out = document.getElementById('test-result');
+    if (!form || !btn || !out) return;
+
+    btn.addEventListener('click', async function () {
+      out.className = 'muted';
+      out.textContent = 'Testing...';
+      btn.disabled = true;
+      try {
+        var fd = new FormData(form);
+        var body = new URLSearchParams();
+        fd.forEach(function (v, k) { body.append(k, String(v)); });
+        var res = await fetch('/sources/test', {
+          method: 'POST',
+          body: body,
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          credentials: 'same-origin'
+        });
+        var data;
+        try { data = await res.json(); } catch (_) { data = { ok: false, error: 'unexpected response (HTTP ' + res.status + ')' }; }
+        if (data && data.ok) {
+          out.className = 'ok';
+          out.textContent = 'Connection OK.';
+        } else {
+          out.className = 'error';
+          out.textContent = 'Failed: ' + (data && data.error ? data.error : 'unknown error');
+        }
+      } catch (err) {
+        out.className = 'error';
+        out.textContent = 'Network error: ' + (err && err.message ? err.message : err);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  })();
+  </script>
+<% } %>
+
+<%- include('../_footer') %>

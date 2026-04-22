@@ -1,0 +1,45 @@
+<%- include('../_header', { title: 'Admin - Audit log', user, csrfToken }) %>
+
+<h1>Audit log</h1>
+<p class="muted">Recent security-relevant events. Newest first. Capped at 100 per page.</p>
+
+<% if (entries.length === 0) { %>
+  <div class="card">No entries yet.</div>
+<% } else { %>
+  <div class="table-scroll">
+  <table>
+    <thead>
+      <tr><th>When</th><th>Actor</th><th>Action</th><th>Target</th><th class="wrap">Details</th><th>IP</th></tr>
+    </thead>
+    <tbody>
+      <% entries.forEach(function (e) { %>
+        <tr>
+          <td class="muted" title="<%= e.created_at %>"><%= e.created_at_display %></td>
+          <td><%= e.actor_username || '-' %></td>
+          <td><code><%= e.action %></code></td>
+          <td class="muted">
+            <% if (e.target_type) { %><%= e.target_type %>:<%= e.target_id %><% } else { %>-<% } %>
+          </td>
+          <td class="muted wrap" style="max-width:30rem;">
+            <% if (e.details_parsed) { %>
+              <code style="font-size:0.75rem;"><%= JSON.stringify(e.details_parsed) %></code>
+            <% } %>
+          </td>
+          <td class="muted"><%= e.ip || '-' %></td>
+        </tr>
+      <% }); %>
+    </tbody>
+  </table>
+  </div>
+
+  <p style="margin-top:1rem;">
+    <% if (prevOffset !== null) { %>
+      <a class="btn secondary" href="/admin/audit?offset=<%= prevOffset %>">&larr; Newer</a>
+    <% } %>
+    <% if (nextOffset !== null) { %>
+      <a class="btn secondary" href="/admin/audit?offset=<%= nextOffset %>">Older &rarr;</a>
+    <% } %>
+  </p>
+<% } %>
+
+<%- include('../_footer') %>

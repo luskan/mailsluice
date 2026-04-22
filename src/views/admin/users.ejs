@@ -1,0 +1,47 @@
+<%- include('../_header', { title: 'Admin - Users', user, csrfToken }) %>
+
+<h1>Users</h1>
+
+<% if (flash) { %>
+  <div class="card ok"><%= flash %></div>
+<% } %>
+
+<h2>Add user</h2>
+<form class="stack" method="POST" action="/admin/users">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <label>Username <input type="text" name="username" required></label>
+  <label><input type="checkbox" name="is_admin" value="1"> Admin</label>
+  <button type="submit">Create user</button>
+  <p class="muted">A random temporary password will be generated and shown here. The user should change it on first login.</p>
+</form>
+
+<h2>All users</h2>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>ID</th><th>Username</th><th>Role</th><th>Created</th><th></th></tr></thead>
+  <tbody>
+    <% users.forEach(function(u) { %>
+      <tr>
+        <td><%= u.id %></td>
+        <td><%= u.username %></td>
+        <td><%= u.is_admin ? 'admin' : 'user' %></td>
+        <td class="muted" title="<%= u.created_at || '' %>"><%= u.created_at_display %></td>
+        <td>
+          <form method="POST" action="/admin/users/<%= u.id %>/reset-password" style="display:inline">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="secondary">Reset password</button>
+          </form>
+          <% if (u.id !== user.id) { %>
+            <form method="POST" action="/admin/users/<%= u.id %>/delete" style="display:inline">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button type="submit" class="danger">Delete</button>
+            </form>
+          <% } %>
+        </td>
+      </tr>
+    <% }); %>
+  </tbody>
+</table>
+</div>
+
+<%- include('../_footer') %>

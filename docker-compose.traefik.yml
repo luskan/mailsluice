@@ -1,0 +1,44 @@
+# Overlay for Traefik-fronted deployments.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d
+# or via the helper:
+#   ./scripts/docker-run.sh --traefik
+#
+# Required env vars (in .env):
+#   MAILSLUICE_DOMAIN        -- e.g. mailsluice.example.com
+#
+# Optional env vars (defaults shown):
+#   TRAEFIK_NETWORK=web                 -- external network Traefik listens on
+#   TRAEFIK_ENTRYPOINT=websecure        -- Traefik entrypoint name
+#   TRAEFIK_CERTRESOLVER=letsencrypt    -- Traefik certresolver name
+#   MAILSLUICE_ROUTER_NAME=mailsluice   -- Traefik router/service label suffix
+
+services:
+  mailsluice:
+    # Traefik reaches the container over the shared network; no host port needed.
+    ports: !reset null
+    networks:
+      - default
+      - traefik
+    # Behind Traefik (TLS-terminating reverse proxy): trust one hop so
+    # req.protocol reflects https, and issue Secure cookies. Hard-coded here
+    # on purpose -- .env values do not apply in traefik mode since the base
+    # env_file loses to this environment block, which is the intent.
+    environment:
+      APP_TRUST_PROXY: "1"
+      APP_COOKIE_SECURE: "true"
+      # Pin the internal port so the traefik label below cannot desync from .env.
+      APP_PORT: "3000"
+      APP_HOST: "0.0.0.0"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=${TRAEFIK_NETWORK:-web}"
+      - "traefik.http.routers.${MAILSLUICE_ROUTER_NAME:-mailsluice}.rule=Host(`${MAILSLUICE_DOMAIN:?set MAILSLUICE_DOMAIN in .env}`)"
+      - "traefik.http.routers.${MAILSLUICE_ROUTER_NAME:-mailsluice}.entrypoints=${TRAEFIK_ENTRYPOINT:-websecure}"
+      - "traefik.http.routers.${MAILSLUICE_ROUTER_NAME:-mailsluice}.tls.certresolver=${TRAEFIK_CERTRESOLVER:-letsencrypt}"
+      - "traefik.http.services.${MAILSLUICE_ROUTER_NAME:-mailsluice}.loadbalancer.server.port=3000"
+
+networks:
+  traefik:
+    name: ${TRAEFIK_NETWORK:-web}
+    external: true

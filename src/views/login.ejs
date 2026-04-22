@@ -1,0 +1,24 @@
+<%- include('_header', { title: 'Sign in', user: null, csrfToken }) %>
+
+<div class="login-card">
+  <h1>Sign in</h1>
+
+  <% if (typeof error !== 'undefined' && error) { %>
+    <div class="card error"><%= error %></div>
+  <% } %>
+
+  <form class="stack login-form" method="POST" action="/login">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <label>
+      Username
+      <input type="text" name="username" autocomplete="username" required autofocus>
+    </label>
+    <label>
+      Password
+      <input type="password" name="password" autocomplete="current-password" required>
+    </label>
+    <button type="submit">Sign in</button>
+  </form>
+</div>
+
+<%- include('_footer') %>
