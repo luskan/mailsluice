@@ -95,6 +95,17 @@ The `_FILE` variants read the key from a file path (systemd
 Everything lives in `./data/mailsluice.db` (SQLite, WAL mode). Back up that
 file. Destroying the container does not touch it.
 
+## Forgot the admin password
+
+No recovery of the old password (argon2id one-way hash). Generate a new one:
+
+```
+./scripts/reset-password.sh admin            # local / dev
+./scripts/reset-password.sh admin --docker   # inside the running container
+```
+
+The new random password is printed once. Log in and change it in the UI.
+
 ## Development
 
 ```
