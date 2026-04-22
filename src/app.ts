@@ -7,6 +7,7 @@ import fastifyCsrf from '@fastify/csrf-protection';
 import fastifyFormbody from '@fastify/formbody';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifyStatic from '@fastify/static';
+import fastifyHelmet from '@fastify/helmet';
 import fastifyView from '@fastify/view';
 import ejs from 'ejs';
 import type { Config } from './config.ts';
@@ -66,6 +67,26 @@ export async function buildApp(cfg: Config, db: Db): Promise<FastifyInstance> {
   if (cfg.APP_HTTP_AUTH && cfg.APP_HTTP_AUTH.length > 0) {
     registerBasicAuth(app, cfg.APP_HTTP_AUTH);
   }
+
+  await app.register(fastifyHelmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", 'data:'],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+    // HSTS only makes sense if the app is reached over HTTPS; helmet defaults
+    // are fine there, and harmless otherwise because browsers ignore it on
+    // plain HTTP.
+  });
 
   await app.register(fastifyFormbody);
   await app.register(fastifyCookie);

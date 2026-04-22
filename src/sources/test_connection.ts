@@ -50,6 +50,9 @@ async function testImap(a: TestConnectionArgs): Promise<TestConnectionResult> {
     socketTimeout: 10_000,
     connectionTimeout: 10_000,
   });
+  // ImapFlow is an EventEmitter; an unhandled 'error' crashes the process.
+  // The error still surfaces through the awaited connect() rejection below.
+  client.on('error', () => {});
   try {
     await client.connect();
     const box = await client.mailboxOpen('INBOX', { readOnly: true });

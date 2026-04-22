@@ -108,6 +108,14 @@ export class ImapSourceWorker implements SourceWorker {
       socketTimeout: 60_000,
       connectionTimeout: 15_000,
     });
+    // Unhandled 'error' on the EventEmitter crashes Node. We still see the
+    // failure via the awaited connect() rejection and the close handler below.
+    this.client.on('error', (err) => {
+      if (this.running) {
+        this.lastError = err instanceof Error ? err.message : String(err);
+        recordLastError(this.deps.db, this.sourceId, err as Error);
+      }
+    });
 
     await this.client.connect();
     this.deps.log('info', 'imap connected', {

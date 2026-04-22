@@ -8,6 +8,7 @@ import type { GmailAdminConfig, GmailUserCredentials } from './gmail.ts';
 import { getGmailOAuthClient, maskSecret } from '../settings.ts';
 import { relativeTime } from '../ui/time.ts';
 import { audit } from '../audit.ts';
+import { publicOrigin } from '../ui/base_url.ts';
 
 type DestinationRow = {
   id: number;
@@ -26,15 +27,12 @@ function takeFlash(req: { session: { flash?: string } }): string | null {
 }
 
 function computeRedirectUri(
-  req: { protocol: string; hostname: string; host?: string; headers: Record<string, string | string[] | undefined> },
+  origin: string,
   adminRedirectOverride: string | undefined,
   type: string,
 ): string {
   if (adminRedirectOverride && adminRedirectOverride.length > 0) return adminRedirectOverride;
-  const host = (req.headers.host as string | undefined) ?? req.hostname;
-  const fwdProto = req.headers['x-forwarded-proto'];
-  const proto = typeof fwdProto === 'string' ? fwdProto.split(',')[0]!.trim() : req.protocol;
-  return `${proto}://${host}/destinations/${type}/callback`;
+  return `${origin}/destinations/${type}/callback`;
 }
 
 function listForUser(app: FastifyInstance, userId: number): DestinationRow[] {
@@ -62,9 +60,7 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
     const rows = listForUser(app, user.id);
     const admin = getGmailOAuthClient(app.db, app.appConfig.encryptionKeys);
 
-    const host = (req.headers.host as string | undefined) ?? req.hostname;
-    const proto = req.protocol;
-    const origin = `${proto}://${host}`;
+    const origin = publicOrigin(req, app.appConfig);
     const suggestedRedirectUri = `${origin}/destinations/gmail/callback`;
 
     return reply.view('destinations/list.ejs', {
@@ -112,7 +108,7 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
       if (!factory) return reply.code(500).send({ error: 'gmail factory not registered' });
 
       const redirectUri = computeRedirectUri(
-        req as unknown as Parameters<typeof computeRedirectUri>[0],
+        publicOrigin(req, app.appConfig),
         admin.redirect_uri,
         'gmail',
       );

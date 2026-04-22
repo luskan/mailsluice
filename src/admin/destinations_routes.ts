@@ -7,6 +7,7 @@ import {
   setGmailOAuthClient,
 } from '../settings.ts';
 import { audit } from '../audit.ts';
+import { publicOrigin } from '../ui/base_url.ts';
 
 type FormBody = {
   client_id?: string;
@@ -31,9 +32,7 @@ export async function registerAdminDestinationRoutes(
       .get(req.session.userId!) as { id: number; username: string; is_admin: number };
     const cfg = getGmailOAuthClient(app.db, app.appConfig.encryptionKeys);
 
-    const host = (req.headers.host as string | undefined) ?? req.hostname;
-    const proto = req.protocol;
-    const origin = `${proto}://${host}`;
+    const origin = publicOrigin(req, app.appConfig);
     const defaultRedirect = `${origin}/destinations/gmail/callback`;
 
     return reply.view('admin/destinations_gmail.ejs', {

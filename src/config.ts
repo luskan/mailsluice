@@ -22,6 +22,14 @@ const schema = z.object({
   // Optional HTTP Basic Auth wrapper, user:password. When set, every request
   // except /health is 401'd until the browser sends the matching credential.
   APP_HTTP_AUTH: z.string().optional(),
+  // Optional fixed public base URL. When set, OAuth redirect_uri and similar
+  // absolute URLs are derived from this instead of request headers (which an
+  // attacker can spoof). Example: https://mailsluice.example.com
+  APP_PUBLIC_BASE_URL: z.string().optional(),
+  // When false (default), source hosts that resolve to loopback / RFC1918 /
+  // link-local / CGNAT addresses are rejected (SSRF hardening). Flip to "1"
+  // if you actually need to fetch mail from a LAN / private host.
+  APP_ALLOW_PRIVATE_SOURCES: z.enum(['0', '1', 'false', 'true']).default('0'),
 });
 
 export type Config = z.infer<typeof schema> & {

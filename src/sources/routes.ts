@@ -4,6 +4,11 @@ import { requireLogin } from '../auth/middleware.ts';
 import { encrypt, decrypt } from '../crypto.ts';
 import { relativeTime } from '../ui/time.ts';
 import { audit } from '../audit.ts';
+import { assertPublicHost, PrivateHostError } from './host_policy.ts';
+
+function allowPrivate(v: string): boolean {
+  return v === '1' || v === 'true';
+}
 
 type SourceRow = {
   id: number;
@@ -123,6 +128,15 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
         });
       }
 
+      try {
+        await assertPublicHost(v.host, allowPrivate(app.appConfig.APP_ALLOW_PRIVATE_SOURCES));
+      } catch (err) {
+        if (err instanceof PrivateHostError) {
+          return reply.send({ ok: false, error: err.message });
+        }
+        throw err;
+      }
+
       const result = await app.testConnection({
         type: v.type,
         host: v.host,
@@ -198,6 +212,15 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
       }
 
       const useTls = v.use_tls === '1' || v.use_tls === 'on' || v.use_tls === 'true';
+      try {
+        await assertPublicHost(v.host, allowPrivate(app.appConfig.APP_ALLOW_PRIVATE_SOURCES));
+      } catch (err) {
+        if (err instanceof PrivateHostError) {
+          req.session.flash = `Host rejected: ${err.message}`;
+          return reply.redirect('/sources/new');
+        }
+        throw err;
+      }
       const testResult = await app.testConnection({
         type: v.type,
         host: v.host,
@@ -311,6 +334,15 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
             `sources.password:${id}`,
           ).toString('utf8');
 
+      try {
+        await assertPublicHost(v.host, allowPrivate(app.appConfig.APP_ALLOW_PRIVATE_SOURCES));
+      } catch (err) {
+        if (err instanceof PrivateHostError) {
+          req.session.flash = `Host rejected: ${err.message}`;
+          return reply.redirect(`/sources/${id}`);
+        }
+        throw err;
+      }
       const testResult = await app.testConnection({
         type: v.type,
         host: v.host,

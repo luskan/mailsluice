@@ -79,7 +79,8 @@ All in `.env` (see `.env.example`). Minimum:
 
 Optional: `APP_PORT`, `APP_HOST`, `APP_DATABASE_PATH`, `APP_TRUST_PROXY`,
 `APP_COOKIE_SECURE`, `APP_EVENT_LOG_MAX_ROWS`,
-`APP_ENCRYPTION_KEY_PREV[_FILE]`, `APP_HTTP_AUTH`.
+`APP_ENCRYPTION_KEY_PREV[_FILE]`, `APP_HTTP_AUTH`,
+`APP_PUBLIC_BASE_URL`, `APP_ALLOW_PRIVATE_SOURCES`.
 
 Set `APP_HTTP_AUTH=user:password` to require browser Basic Auth in front of
 every page (except `/health`). It's a moat, not a wall - hides the login page
@@ -123,13 +124,18 @@ scripts/
 
 ## Security notes
 
-- Passwords: argon2id (OWASP 2023+ params), transparent rehash on login.
+- Passwords: argon2id (OWASP 2024 params), transparent rehash on login.
 - At rest: AES-256-GCM with per-row AAD binding (ciphertext copy-paste
   between rows won't decrypt). Key rotation supported via
   `APP_ENCRYPTION_KEY_PREV[_FILE]`.
 - CSRF on every mutation. Sessions in signed cookies; regenerated on login
   and password change.
 - Login rate limit: per (user, IP) 5/15min + per IP 20/15min.
+- `@fastify/helmet` adds CSP, frame-ancestors, Referrer-Policy, no-sniff.
+- SSRF guard blocks loopback/RFC1918/link-local as source hosts unless
+  `APP_ALLOW_PRIVATE_SOURCES=1`.
+- OAuth `redirect_uri` is pinned to `APP_PUBLIC_BASE_URL` when set, so Host
+  header spoofing cannot shift the callback.
 - Audit log (admin actions) and event log (sync activity) on separate pages.
 
 ## License

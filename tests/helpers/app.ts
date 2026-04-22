@@ -25,6 +25,7 @@ export async function makeTestApp(
     APP_TRUST_PROXY: '',
     APP_COOKIE_SECURE: 'auto',
     APP_EVENT_LOG_MAX_ROWS: 10_000,
+    APP_ALLOW_PRIVATE_SOURCES: '1',
     encryptionKey: key,
     encryptionKeys: { primary: key },
     keyProviderName: 'test',
