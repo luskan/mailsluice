@@ -34,9 +34,9 @@
   function isImap() { return currentType() === 'imap'; }
 
   function updateTypeUi() {
-    if (pollWrap) pollWrap.style.display = isImap() ? 'none' : '';
+    if (pollWrap) pollWrap.classList.toggle('hidden', isImap());
     var foldersCard = document.getElementById('folders-card');
-    if (foldersCard) foldersCard.style.display = isImap() ? '' : 'none';
+    if (foldersCard) foldersCard.classList.toggle('hidden', !isImap());
     updateSaveState();
   }
 

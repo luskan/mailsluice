@@ -1,65 +1,73 @@
 <%- include('../_header', { title: 'Admin - Events', user, csrfToken }) %>
 
 <h1>Event log</h1>
-<p class="muted">
+<p class="text-sm text-base-content/60">
   Worker activity and errors -- fetch counts, connection lifecycle, retries, skips, import failures. Newest first.
   Total rows: <%= total %> (capped; oldest pruned automatically when the cap is reached).
 </p>
 
-<form method="GET" action="/admin/events" class="stack" style="display:flex; gap:0.5rem; align-items:end; flex-wrap:wrap;">
-  <label>Level
-    <select name="level">
+<form method="GET" action="/admin/events" class="flex gap-3 items-end flex-wrap mt-4">
+  <label class="form-control">
+    <span class="label label-text">Level</span>
+    <select name="level" class="select select-bordered select-sm w-36">
       <option value="" <%= level === '' ? 'selected' : '' %>>(any)</option>
       <option value="info"  <%= level === 'info'  ? 'selected' : '' %>>info</option>
       <option value="warn"  <%= level === 'warn'  ? 'selected' : '' %>>warn</option>
       <option value="error" <%= level === 'error' ? 'selected' : '' %>>error</option>
     </select>
   </label>
-  <label>Source ID
-    <input type="number" name="source_id" value="<%= sourceId %>" min="1" style="width:8rem;">
+  <label class="form-control">
+    <span class="label label-text">Source ID</span>
+    <input type="number" name="source_id" value="<%= sourceId %>" min="1" class="input input-bordered input-sm w-32">
   </label>
-  <button type="submit">Filter</button>
-  <a class="btn secondary" href="/admin/events">Reset</a>
+  <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+  <a class="btn btn-outline btn-sm" href="/admin/events">Reset</a>
 </form>
 
 <% if (entries.length === 0) { %>
-  <div class="card" style="margin-top:1rem;">No events matching the filter.</div>
+  <div class="card bg-base-200 border border-base-300 mt-4">
+    <div class="card-body text-base-content/70">No events matching the filter.</div>
+  </div>
 <% } else { %>
-  <div class="table-scroll" style="margin-top:1rem;">
-  <table>
-    <thead>
-      <tr><th>When</th><th>Level</th><th>Source</th><th class="wrap">Message</th><th class="wrap">Details</th></tr>
-    </thead>
-    <tbody>
-      <% entries.forEach(function (e) { %>
-        <tr>
-          <td class="muted" title="<%= e.created_at %>"><%= e.created_at_display %></td>
-          <td>
-            <% if (e.level === 'error') { %><span class="error">error</span>
-            <% } else if (e.level === 'warn') { %><span style="color:var(--accent);">warn</span>
-            <% } else { %><span class="muted">info</span><% } %>
-          </td>
-          <td class="muted"><%= e.source_id || '-' %></td>
-          <td class="wrap" style="max-width:26rem;"><%= e.message %></td>
-          <td class="muted wrap" style="max-width:28rem;">
-            <% if (e.details_parsed) { %>
-              <code style="font-size:0.75rem;"><%= JSON.stringify(e.details_parsed) %></code>
-            <% } %>
-          </td>
-        </tr>
-      <% }); %>
-    </tbody>
-  </table>
+  <div class="overflow-x-auto rounded-box border border-base-300 bg-base-200 mt-4">
+    <table class="table table-zebra table-sm">
+      <thead>
+        <tr><th>When</th><th>Level</th><th>Source</th><th>Message</th><th>Details</th></tr>
+      </thead>
+      <tbody>
+        <% entries.forEach(function (e) { %>
+          <tr>
+            <td class="text-base-content/60 whitespace-nowrap" title="<%= e.created_at %>"><%= e.created_at_display %></td>
+            <td>
+              <% if (e.level === 'error') { %>
+                <span class="badge badge-error badge-sm">error</span>
+              <% } else if (e.level === 'warn') { %>
+                <span class="badge badge-warning badge-sm">warn</span>
+              <% } else { %>
+                <span class="badge badge-ghost badge-sm">info</span>
+              <% } %>
+            </td>
+            <td class="text-base-content/60"><%= e.source_id || '-' %></td>
+            <td class="whitespace-normal max-w-[26rem]"><%= e.message %></td>
+            <td class="text-base-content/60 whitespace-normal max-w-[28rem]">
+              <% if (e.details_parsed) { %>
+                <code class="text-xs break-words"><%= JSON.stringify(e.details_parsed) %></code>
+              <% } %>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
   </div>
 
-  <p style="margin-top:1rem;">
+  <div class="flex gap-2 mt-4">
     <% if (prevOffset !== null) { %>
-      <a class="btn secondary" href="/admin/events?offset=<%= prevOffset %>&level=<%= level %>&source_id=<%= sourceId %>">&larr; Newer</a>
+      <a class="btn btn-outline btn-sm" href="/admin/events?offset=<%= prevOffset %>&level=<%= level %>&source_id=<%= sourceId %>">&larr; Newer</a>
     <% } %>
     <% if (nextOffset !== null) { %>
-      <a class="btn secondary" href="/admin/events?offset=<%= nextOffset %>&level=<%= level %>&source_id=<%= sourceId %>">Older &rarr;</a>
+      <a class="btn btn-outline btn-sm" href="/admin/events?offset=<%= nextOffset %>&level=<%= level %>&source_id=<%= sourceId %>">Older &rarr;</a>
     <% } %>
-  </p>
+  </div>
 <% } %>
 
 <%- include('../_footer') %>

@@ -3,40 +3,74 @@
 <h1>Welcome, <%= user.username %></h1>
 
 <% if (!hasDestinations) { %>
-  <div class="card">
-    <p>Start by connecting a destination mailbox (Gmail) so imported mail has somewhere to go.</p>
-    <a class="btn" href="/destinations">Connect a destination</a>
+  <div class="card bg-base-200 border border-base-300">
+    <div class="card-body">
+      <p>Start by connecting a destination mailbox (Gmail) so imported mail has somewhere to go.</p>
+      <div class="card-actions">
+        <a class="btn btn-primary" href="/destinations">Connect a destination</a>
+      </div>
+    </div>
   </div>
 <% } else if (sources.length === 0) { %>
-  <div class="card">
-    <p>Destination ready. Add a source mailbox (IMAP or POP) to start importing mail.</p>
-    <a class="btn" href="/sources/new">Add a source</a>
+  <div class="card bg-base-200 border border-base-300">
+    <div class="card-body">
+      <p>Destination ready. Add a source mailbox (IMAP or POP) to start importing mail.</p>
+      <div class="card-actions">
+        <a class="btn btn-primary" href="/sources/new">Add a source</a>
+      </div>
+    </div>
   </div>
 <% } else { %>
   <h2>Sources</h2>
-  <div class="table-scroll">
-  <table>
-    <thead><tr><th>Name</th><th>Type</th><th>Host</th><th>Tag</th><th>Enabled</th><th>Connected</th><th>Last sync</th><th>Imported</th><th>Skipped</th><th class="wrap">Last error</th></tr></thead>
-    <tbody>
-      <% sources.forEach(function(s) { %>
+  <div class="overflow-x-auto rounded-box border border-base-300 bg-base-200">
+    <table class="table table-zebra table-sm">
+      <thead>
         <tr>
-          <td><%= s.name %></td>
-          <td><%= s.type %></td>
-          <td><%= s.host %>:<%= s.port %></td>
-          <td><%= s.destination_tag %></td>
-          <td><%= s.enabled ? 'yes' : 'no' %></td>
-          <td class="<%= s.connected ? 'ok' : 'muted' %>"><%= s.connected ? 'connected' : 'not connected' %></td>
-          <td class="muted" title="<%= s.last_sync_at || '' %>"><%= s.last_sync_at_display %></td>
-          <td><%= s.imported_count %></td>
-          <td><%= s.skipped_count %></td>
-          <td class="error wrap" style="max-width:22rem;"><%= s.last_error || '' %></td>
+          <th>Name</th>
+          <th>Type</th>
+          <th>Host</th>
+          <th>Tag</th>
+          <th>Enabled</th>
+          <th>Connected</th>
+          <th>Last sync</th>
+          <th>Imported</th>
+          <th>Skipped</th>
+          <th>Last error</th>
         </tr>
-      <% }); %>
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        <% sources.forEach(function(s) { %>
+          <tr>
+            <td class="font-medium"><%= s.name %></td>
+            <td><span class="badge badge-ghost"><%= s.type %></span></td>
+            <td class="font-mono text-sm"><%= s.host %>:<%= s.port %></td>
+            <td><%= s.destination_tag %></td>
+            <td>
+              <% if (s.enabled) { %>
+                <span class="badge badge-success badge-sm">yes</span>
+              <% } else { %>
+                <span class="badge badge-ghost badge-sm">no</span>
+              <% } %>
+            </td>
+            <td>
+              <% if (s.connected) { %>
+                <span class="text-success">connected</span>
+              <% } else { %>
+                <span class="text-base-content/60">not connected</span>
+              <% } %>
+            </td>
+            <td class="text-base-content/60" title="<%= s.last_sync_at || '' %>"><%= s.last_sync_at_display %></td>
+            <td><%= s.imported_count %></td>
+            <td><%= s.skipped_count %></td>
+            <td class="text-error whitespace-normal max-w-xs"><%= s.last_error || '' %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
   </div>
-  <p class="muted">
-    <a href="/sources">Manage sources</a> &middot; <a href="/destinations">Manage destinations</a>
+  <p class="text-sm text-base-content/60 mt-4">
+    <a class="link link-primary" href="/sources">Manage sources</a> &middot;
+    <a class="link link-primary" href="/destinations">Manage destinations</a>
   </p>
 <% } %>
 

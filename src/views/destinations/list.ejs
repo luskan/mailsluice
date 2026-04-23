@@ -3,46 +3,52 @@
 <h1>Destination</h1>
 
 <% if (flash) { %>
-  <div class="card ok"><%= flash %></div>
+  <div role="alert" class="alert alert-success text-sm my-3"><span><%= flash %></span></div>
 <% } %>
 
 <% if (user.isAdmin) { %>
-  <h2 style="margin-top:1.5rem;">Gmail OAuth client <span class="muted small" style="font-weight:400;">(admin)</span></h2>
+  <h2>Gmail OAuth client <span class="text-sm text-base-content/60 font-normal">(admin)</span></h2>
   <%- include('../admin/_gmail_oauth_panel', { csrfToken, flash: null, configured, client_id, client_secret_mask, redirect_uri, suggested_origin, suggested_redirect_uri }) %>
-  <hr style="border: 0; border-top: 1px solid var(--border); margin: 2rem 0;">
+  <div class="divider my-8"></div>
   <h2>Your connected mailbox</h2>
 <% } %>
 
 <% if (destinations.length === 0) { %>
-  <div class="card">
-    <p>No destination connected yet. Mail imported from your sources is injected into this mailbox.</p>
-    <% if (adminConfigured) { %>
-      <p><a class="btn" href="/destinations/gmail/connect">Connect Gmail</a></p>
-    <% } else { %>
-      <p class="error">Gmail is not available yet -- an admin must configure OAuth credentials above
-      <% if (!user.isAdmin) { %>. Please ask an administrator to set this up<% } %>.</p>
-    <% } %>
+  <div class="card bg-base-200 border border-base-300">
+    <div class="card-body">
+      <p>No destination connected yet. Mail imported from your sources is injected into this mailbox.</p>
+      <% if (adminConfigured) { %>
+        <div class="card-actions">
+          <a class="btn btn-primary" href="/destinations/gmail/connect">Connect Gmail</a>
+        </div>
+      <% } else { %>
+        <p class="text-error">Gmail is not available yet -- an admin must configure OAuth credentials above
+        <% if (!user.isAdmin) { %>. Please ask an administrator to set this up<% } %>.</p>
+      <% } %>
+    </div>
   </div>
 <% } else { %>
   <% const d = destinations[0]; %>
-  <div class="card">
-    <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
-      <div>
-        <div class="muted small" style="text-transform:uppercase; letter-spacing:0.06em;"><%= d.type %></div>
-        <div style="font-size:1.15rem; font-weight:600; margin-top:0.25rem;"><%= d.account_identifier || 'connected' %></div>
-        <div class="muted small" style="margin-top:0.25rem;">
-          Connected <span title="<%= d.created_at || '' %>"><%= d.created_at_display %></span>
-          <% if (!d.enabled) { %> &middot; <span class="error">disabled</span><% } %>
+  <div class="card bg-base-200 border border-base-300">
+    <div class="card-body">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <div class="text-xs text-base-content/60 uppercase tracking-wider"><%= d.type %></div>
+          <div class="text-lg font-semibold mt-1"><%= d.account_identifier || 'connected' %></div>
+          <div class="text-sm text-base-content/60 mt-1">
+            Connected <span title="<%= d.created_at || '' %>"><%= d.created_at_display %></span>
+            <% if (!d.enabled) { %> &middot; <span class="text-error">disabled</span><% } %>
+          </div>
         </div>
+        <form method="POST" action="/destinations/<%= d.id %>/disconnect">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button type="submit" class="btn btn-error btn-sm">Disconnect</button>
+        </form>
       </div>
-      <form method="POST" action="/destinations/<%= d.id %>/disconnect">
-        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button type="submit" class="danger">Disconnect</button>
-      </form>
+      <p class="text-sm text-base-content/60 mt-4">
+        Disconnecting revokes this Mailsluice's OAuth token with Google and removes any sources attached to this destination.
+      </p>
     </div>
-    <p class="muted small" style="margin-top:1rem;">
-      Disconnecting revokes this Mailsluice's OAuth token with Google and removes any sources attached to this destination.
-    </p>
   </div>
 <% } %>
 

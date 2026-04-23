@@ -1,105 +1,107 @@
-<details class="card" <%= configured ? '' : 'open' %>>
-  <summary><strong>How to get these credentials from Google Cloud</strong></summary>
+<details class="collapse collapse-arrow bg-base-200 border border-base-300 mb-4" <%= configured ? '' : 'open' %>>
+  <summary class="collapse-title font-semibold">How to get these credentials from Google Cloud</summary>
+  <div class="collapse-content prose-sm max-w-none">
 
-  <p class="muted">One-time setup in Google Cloud. Mailsluice uses the Gmail API with a standard OAuth 2.0 Web-application flow -- no service account, no domain-wide delegation. Steps below match the Google Cloud console as of April 2026; if Google renames a page, the labels may drift.</p>
+    <p class="text-sm text-base-content/60">One-time setup in Google Cloud. Mailsluice uses the Gmail API with a standard OAuth 2.0 Web-application flow -- no service account, no domain-wide delegation. Steps below match the Google Cloud console as of April 2026; if Google renames a page, the labels may drift.</p>
 
-  <ol>
-    <li>
-      <strong>Create / pick a project.</strong>
-      <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">console.cloud.google.com/projectcreate</a>. Make sure the project dropdown in the console title bar shows the one you want for the rest of the steps.
-    </li>
-    <li>
-      <strong>Enable the Gmail API.</strong>
-      <a href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener">API Library -&gt; Gmail API -&gt; Enable</a>.
-    </li>
-    <li>
-      <strong>Branding (app info).</strong>
-      <a href="https://console.cloud.google.com/auth/branding" target="_blank" rel="noopener">Auth Platform -&gt; Branding</a>. Fill the app name, user support email, and developer contact email. The app logo is optional.
-    </li>
-    <li>
-      <strong>Audience.</strong>
-      <a href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Auth Platform -&gt; Audience</a>:
-      <ul>
-        <li>User type: <strong>External</strong>.</li>
-        <li>Publishing status: keep it in <strong>Testing</strong> (caps you at 100 test users without Google's review -- plenty for self-hosting).</li>
-        <li>Test users: add every Google account that will connect through this Mailsluice deployment (yourself at minimum). Anyone not on this list will get an <em>"access blocked"</em> error when they try to connect.</li>
-      </ul>
-    </li>
-    <li>
-      <strong>Data Access (scopes).</strong>
-      <a href="https://console.cloud.google.com/auth/scopes" target="_blank" rel="noopener">Auth Platform -&gt; Data Access</a>. Add these three scopes (they are what Mailsluice requests):
-      <ul>
-        <li><code>https://www.googleapis.com/auth/gmail.modify</code></li>
-        <li><code>https://www.googleapis.com/auth/gmail.labels</code></li>
-        <li><code>https://www.googleapis.com/auth/userinfo.email</code></li>
-      </ul>
-      <p class="muted"><code>gmail.modify</code> and <code>gmail.labels</code> are sensitive scopes -- that is expected and does not require Google verification while the app stays in Testing mode.</p>
-    </li>
-    <li>
-      <strong>Create the OAuth client.</strong>
-      <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Auth Platform -&gt; Clients -&gt; + Create client</a>:
-      <ul>
-        <li><em>Application type:</em> <strong>Web application</strong></li>
-        <li><em>Name:</em> anything, e.g. <code>Mailsluice</code></li>
-        <li>
-          <em>Authorized JavaScript origins:</em>
-          <div class="card" style="margin:0.5rem 0; padding:0.75rem;">
-            <code><%= suggested_origin %></code>
-          </div>
-          <p class="muted">If you will also access this deployment through another URL (e.g. behind a reverse proxy on a public hostname as well as via localhost), add each origin on its own line. Google matches these exactly.</p>
-        </li>
-        <li>
-          <em>Authorized redirect URIs:</em>
-          <div class="card" style="margin:0.5rem 0; padding:0.75rem;">
-            <code><%= suggested_redirect_uri %></code>
-          </div>
-          <p class="muted">Add one redirect URI per environment (localhost for dev + your public URL for prod). One OAuth client holds many. The URI must match exactly -- trailing slash included.</p>
-        </li>
-      </ul>
-    </li>
-    <li>
-      <strong>Copy the client ID and client secret</strong> Google shows you after creating the client, and paste them into the form below. If you closed that dialog, you can reopen it from the Clients list (three-dot menu -&gt; <em>Download JSON</em>, or reveal the secret).
-    </li>
-  </ol>
+    <ol class="list-decimal ml-5 space-y-3 mt-3">
+      <li>
+        <strong>Create / pick a project.</strong>
+        <a class="link link-primary" href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">console.cloud.google.com/projectcreate</a>. Make sure the project dropdown in the console title bar shows the one you want for the rest of the steps.
+      </li>
+      <li>
+        <strong>Enable the Gmail API.</strong>
+        <a class="link link-primary" href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener">API Library -&gt; Gmail API -&gt; Enable</a>.
+      </li>
+      <li>
+        <strong>Branding (app info).</strong>
+        <a class="link link-primary" href="https://console.cloud.google.com/auth/branding" target="_blank" rel="noopener">Auth Platform -&gt; Branding</a>. Fill the app name, user support email, and developer contact email. The app logo is optional.
+      </li>
+      <li>
+        <strong>Audience.</strong>
+        <a class="link link-primary" href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Auth Platform -&gt; Audience</a>:
+        <ul class="list-disc ml-5 mt-1">
+          <li>User type: <strong>External</strong>.</li>
+          <li>Publishing status: keep it in <strong>Testing</strong> (caps you at 100 test users without Google's review -- plenty for self-hosting).</li>
+          <li>Test users: add every Google account that will connect through this Mailsluice deployment (yourself at minimum). Anyone not on this list will get an <em>"access blocked"</em> error when they try to connect.</li>
+        </ul>
+      </li>
+      <li>
+        <strong>Data Access (scopes).</strong>
+        <a class="link link-primary" href="https://console.cloud.google.com/auth/scopes" target="_blank" rel="noopener">Auth Platform -&gt; Data Access</a>. Add these three scopes (they are what Mailsluice requests):
+        <ul class="list-disc ml-5 mt-1">
+          <li><code>https://www.googleapis.com/auth/gmail.modify</code></li>
+          <li><code>https://www.googleapis.com/auth/gmail.labels</code></li>
+          <li><code>https://www.googleapis.com/auth/userinfo.email</code></li>
+        </ul>
+        <p class="text-sm text-base-content/60 mt-1"><code>gmail.modify</code> and <code>gmail.labels</code> are sensitive scopes -- that is expected and does not require Google verification while the app stays in Testing mode.</p>
+      </li>
+      <li>
+        <strong>Create the OAuth client.</strong>
+        <a class="link link-primary" href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Auth Platform -&gt; Clients -&gt; + Create client</a>:
+        <ul class="list-disc ml-5 mt-1">
+          <li><em>Application type:</em> <strong>Web application</strong></li>
+          <li><em>Name:</em> anything, e.g. <code>Mailsluice</code></li>
+          <li>
+            <em>Authorized JavaScript origins:</em>
+            <div class="mockup-code my-2 text-xs"><pre><code><%= suggested_origin %></code></pre></div>
+            <p class="text-sm text-base-content/60">If you will also access this deployment through another URL (e.g. behind a reverse proxy on a public hostname as well as via localhost), add each origin on its own line. Google matches these exactly.</p>
+          </li>
+          <li>
+            <em>Authorized redirect URIs:</em>
+            <div class="mockup-code my-2 text-xs"><pre><code><%= suggested_redirect_uri %></code></pre></div>
+            <p class="text-sm text-base-content/60">Add one redirect URI per environment (localhost for dev + your public URL for prod). One OAuth client holds many. The URI must match exactly -- trailing slash included.</p>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <strong>Copy the client ID and client secret</strong> Google shows you after creating the client, and paste them into the form below. If you closed that dialog, you can reopen it from the Clients list (three-dot menu -&gt; <em>Download JSON</em>, or reveal the secret).
+      </li>
+    </ol>
+  </div>
 </details>
 
 <% if (configured) { %>
-  <div class="card">
-    <div><strong>Currently configured.</strong></div>
-    <div class="muted">client_id: <%= client_id %></div>
-    <div class="muted">client_secret: <%= client_secret_mask %></div>
-    <% if (redirect_uri) { %>
-      <div class="muted">redirect_uri: <%= redirect_uri %></div>
-    <% } else { %>
-      <div class="muted">redirect_uri: (default) <%= suggested_redirect_uri %></div>
-    <% } %>
+  <div class="card bg-base-200 border border-base-300">
+    <div class="card-body">
+      <div class="font-semibold">Currently configured.</div>
+      <div class="text-base-content/60 text-sm">client_id: <code><%= client_id %></code></div>
+      <div class="text-base-content/60 text-sm">client_secret: <code><%= client_secret_mask %></code></div>
+      <% if (redirect_uri) { %>
+        <div class="text-base-content/60 text-sm">redirect_uri: <code><%= redirect_uri %></code></div>
+      <% } else { %>
+        <div class="text-base-content/60 text-sm">redirect_uri: (default) <code><%= suggested_redirect_uri %></code></div>
+      <% } %>
+    </div>
   </div>
 <% } %>
 
 <h3><%= configured ? 'Replace credentials' : 'Set credentials' %></h3>
-<form class="stack" method="POST" action="/admin/destinations/gmail">
+<form method="POST" action="/admin/destinations/gmail" class="flex flex-col gap-3 max-w-2xl">
   <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-  <label>
-    client_id
-    <input type="text" name="client_id" class="wide" value="<%= client_id %>" required autocomplete="off" placeholder="XXXXXXXXXXXX.apps.googleusercontent.com">
+  <label class="form-control">
+    <span class="label label-text">client_id</span>
+    <input type="text" name="client_id" value="<%= client_id %>" class="input input-bordered w-full" required autocomplete="off" placeholder="XXXXXXXXXXXX.apps.googleusercontent.com">
   </label>
-  <label>
-    client_secret
-    <input type="password" name="client_secret" class="wide" <%= configured ? '' : 'required' %> autocomplete="new-password" placeholder="<%= configured ? 'leave blank to keep current secret' : 'GOCSPX-...' %>">
+  <label class="form-control">
+    <span class="label label-text">client_secret</span>
+    <input type="password" name="client_secret" class="input input-bordered w-full" <%= configured ? '' : 'required' %> autocomplete="new-password" placeholder="<%= configured ? 'leave blank to keep current secret' : 'GOCSPX-...' %>">
   </label>
-  <label>
-    redirect_uri (optional override)
-    <input type="text" name="redirect_uri" class="wide" value="<%= redirect_uri %>" autocomplete="off" placeholder="<%= suggested_redirect_uri %>">
-    <span class="muted">Leave blank to use <code><%= suggested_redirect_uri %></code> (derived from this request). Set it only if you have multiple redirect URIs in Google and want to force a specific one.</span>
+  <label class="form-control">
+    <span class="label label-text">redirect_uri (optional override)</span>
+    <input type="text" name="redirect_uri" value="<%= redirect_uri %>" class="input input-bordered w-full" autocomplete="off" placeholder="<%= suggested_redirect_uri %>">
+    <span class="label-text-alt text-base-content/60 mt-1">Leave blank to use <code><%= suggested_redirect_uri %></code> (derived from this request). Set it only if you have multiple redirect URIs in Google and want to force a specific one.</span>
   </label>
-  <button type="submit">Save</button>
+  <div>
+    <button type="submit" class="btn btn-primary btn-sm">Save</button>
+  </div>
 </form>
 
 <% if (configured) { %>
   <h3>Clear</h3>
   <form method="POST" action="/admin/destinations/gmail/clear">
     <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-    <button type="submit" class="danger">Clear Gmail OAuth client</button>
-    <p class="muted">Clearing removes the credentials from the database. Existing user-level tokens are not revoked; users can disconnect their Gmail individually.</p>
+    <button type="submit" class="btn btn-error btn-sm">Clear Gmail OAuth client</button>
+    <p class="text-sm text-base-content/60 mt-2">Clearing removes the credentials from the database. Existing user-level tokens are not revoked; users can disconnect their Gmail individually.</p>
   </form>
 <% } %>

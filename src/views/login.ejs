@@ -1,24 +1,28 @@
 <%- include('_header', { title: 'Sign in', user: null, csrfToken }) %>
 
-<div class="login-card">
-  <h1>Sign in</h1>
+<div class="max-w-sm mx-auto mt-10">
+  <div class="card bg-base-200 border border-base-300 shadow">
+    <div class="card-body">
+      <h1 class="card-title text-2xl">Sign in</h1>
 
-  <% if (typeof error !== 'undefined' && error) { %>
-    <div class="card error"><%= error %></div>
-  <% } %>
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div role="alert" class="alert alert-error text-sm"><span><%= error %></span></div>
+      <% } %>
 
-  <form class="stack login-form" method="POST" action="/login">
-    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-    <label>
-      Username
-      <input type="text" name="username" autocomplete="username" required autofocus>
-    </label>
-    <label>
-      Password
-      <input type="password" name="password" autocomplete="current-password" required>
-    </label>
-    <button type="submit">Sign in</button>
-  </form>
+      <form method="POST" action="/login" class="flex flex-col gap-3 mt-2">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="floating-label">
+          <span>Username</span>
+          <input type="text" name="username" class="input input-bordered w-full" placeholder="Username" autocomplete="username" required autofocus>
+        </label>
+        <label class="floating-label">
+          <span>Password</span>
+          <input type="password" name="password" class="input input-bordered w-full" placeholder="Password" autocomplete="current-password" required>
+        </label>
+        <button type="submit" class="btn btn-primary mt-2">Sign in</button>
+      </form>
+    </div>
+  </div>
 </div>
 
 <%- include('_footer') %>

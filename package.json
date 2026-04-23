@@ -9,8 +9,11 @@
     "node": ">=22.0.0"
   },
   "scripts": {
-    "dev": "node --env-file-if-exists=.env --import tsx --watch src/index.ts",
-    "build": "rm -rf dist && tsc && cp src/db/schema.sql dist/db/schema.sql && cp -r src/views dist/views && cp -r src/public dist/public",
+    "dev": "concurrently -k -n server,css -c blue,magenta \"npm:dev:server\" \"npm:dev:css\"",
+    "dev:server": "node --env-file-if-exists=.env --import tsx --watch src/index.ts",
+    "dev:css": "tailwindcss -i src/styles/input.css -o src/public/styles.css --watch",
+    "build:css": "tailwindcss -i src/styles/input.css -o src/public/styles.css --minify",
+    "build": "rm -rf dist && npm run build:css && tsc && cp src/db/schema.sql dist/db/schema.sql && cp -r src/views dist/views && cp -r src/public dist/public",
     "start": "node --env-file-if-exists=.env dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.test.ts",
@@ -37,10 +40,14 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.2.4",
     "@types/better-sqlite3": "^7.6.13",
     "@types/ejs": "^3.1.5",
     "@types/mailparser": "^3.4.6",
     "@types/node": "^22.18.2",
+    "concurrently": "^9.2.1",
+    "daisyui": "^5.5.19",
+    "tailwindcss": "^4.2.4",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3"
   }

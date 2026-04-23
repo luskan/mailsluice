@@ -3,7 +3,7 @@
 <h1>Gmail OAuth client</h1>
 
 <% if (flash) { %>
-  <div class="card ok"><%= flash %></div>
+  <div role="alert" class="alert alert-success text-sm my-3"><span><%= flash %></span></div>
 <% } %>
 
 <%- include('_gmail_oauth_panel', { csrfToken, flash, configured, client_id, client_secret_mask, redirect_uri, suggested_origin, suggested_redirect_uri }) %>

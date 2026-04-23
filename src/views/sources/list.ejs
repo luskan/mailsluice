@@ -1,80 +1,75 @@
 <%- include('../_header', { title: 'Sources', user, csrfToken }) %>
 
-<h1>Sources</h1>
+<div class="flex items-center justify-between flex-wrap gap-3">
+  <h1>Sources</h1>
+  <a class="btn btn-primary btn-sm" href="/sources/new">+ Add source</a>
+</div>
 
 <% if (flash) { %>
-  <div class="card ok"><%= flash %></div>
+  <div role="alert" class="alert alert-success text-sm my-3"><span><%= flash %></span></div>
 <% } %>
 
-<p><a class="btn" href="/sources/new">Add source</a></p>
-
 <% if (sources.length === 0) { %>
-  <div class="card">No sources yet.</div>
+  <div class="card bg-base-200 border border-base-300 mt-2">
+    <div class="card-body text-base-content/70">No sources yet.</div>
+  </div>
 <% } else { %>
-  <div class="table-scroll">
-  <table class="sources-table">
-    <colgroup>
-      <col style="width: 17%;">
-      <col style="width: 13%;">
-      <col style="width: 10%;">
-      <col style="width: 8%;">
-      <col style="width: 10%;">
-      <col style="width: 9%;">
-      <col style="width: 11%;">
-      <col style="width: 22%;">
-    </colgroup>
-    <thead>
-      <tr>
-        <th>Source</th>
-        <th>Server</th>
-        <th>Tag</th>
-        <th>Status</th>
-        <th>Last sync</th>
-        <th style="text-align:right;" title="Imported / Skipped">Imp./Skip.</th>
-        <th class="wrap">Last error</th>
-        <th class="actions-col">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% sources.forEach(function(s) { %>
+  <div class="overflow-x-auto rounded-box border border-base-300 bg-base-200 mt-4">
+    <table class="table table-zebra table-sm">
+      <thead>
         <tr>
-          <td title="<%= s.name %>">
-            <div><strong><%= s.name %></strong></div>
-            <div class="muted small"><%= s.type.toUpperCase() %></div>
-          </td>
-          <td title="<%= s.host %>:<%= s.port %> / <%= s.username %>">
-            <div><%= s.host %>:<%= s.port %></div>
-            <div class="muted small"><%= s.username %></div>
-          </td>
-          <td title="<%= s.destination_tag %>"><%= s.destination_tag %></td>
-          <td>
-            <% if (s.enabled) { %>
-              <span class="ok">enabled</span>
-            <% } else { %>
-              <span class="muted">disabled</span>
-            <% } %>
-          </td>
-          <td class="muted" title="<%= s.last_sync_at || '' %>"><%= s.last_sync_at_display %></td>
-          <td style="text-align:right;">
-            <span><%= s.imported_count !== undefined ? s.imported_count : 0 %></span>
-            <span class="muted"> / <%= s.skipped_count %></span>
-          </td>
-          <td class="error wrap" style="max-width:22rem;"><%= s.last_error || '' %></td>
-          <td class="actions-col">
-            <a href="/sources/<%= s.id %>" class="btn secondary">Edit</a>
-            <form method="POST" action="/sources/<%= s.id %>/toggle">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <button type="submit" class="secondary"><%= s.enabled ? 'Disable' : 'Enable' %></button>
-            </form>
-            <form method="POST" action="/sources/<%= s.id %>/delete">
-              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-              <button type="submit" class="danger">Delete</button>
-            </form>
-          </td>
+          <th>Source</th>
+          <th>Server</th>
+          <th>Tag</th>
+          <th>Status</th>
+          <th>Last sync</th>
+          <th class="text-right" title="Imported / Skipped">Imp./Skip.</th>
+          <th>Last error</th>
+          <th class="text-right">Actions</th>
         </tr>
-      <% }); %>
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        <% sources.forEach(function(s) { %>
+          <tr>
+            <td title="<%= s.name %>">
+              <div class="font-semibold"><%= s.name %></div>
+              <div class="text-xs text-base-content/60"><%= s.type.toUpperCase() %></div>
+            </td>
+            <td title="<%= s.host %>:<%= s.port %> / <%= s.username %>">
+              <div class="font-mono text-sm"><%= s.host %>:<%= s.port %></div>
+              <div class="text-xs text-base-content/60"><%= s.username %></div>
+            </td>
+            <td title="<%= s.destination_tag %>"><%= s.destination_tag %></td>
+            <td>
+              <% if (s.enabled) { %>
+                <span class="badge badge-success badge-sm">enabled</span>
+              <% } else { %>
+                <span class="badge badge-ghost badge-sm">disabled</span>
+              <% } %>
+            </td>
+            <td class="text-base-content/60" title="<%= s.last_sync_at || '' %>"><%= s.last_sync_at_display %></td>
+            <td class="text-right whitespace-nowrap">
+              <span><%= s.imported_count !== undefined ? s.imported_count : 0 %></span>
+              <span class="text-base-content/60"> / <%= s.skipped_count %></span>
+            </td>
+            <td class="text-error whitespace-normal max-w-[22rem]"><%= s.last_error || '' %></td>
+            <td class="text-right whitespace-nowrap">
+              <div class="inline-flex gap-1 justify-end flex-wrap">
+                <a href="/sources/<%= s.id %>" class="btn btn-xs btn-outline">Edit</a>
+                <form method="POST" action="/sources/<%= s.id %>/toggle" class="inline">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-xs btn-outline"><%= s.enabled ? 'Disable' : 'Enable' %></button>
+                </form>
+                <form method="POST" action="/sources/<%= s.id %>/delete" class="inline">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button type="submit" class="btn btn-xs btn-error">Delete</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
   </div>
 <% } %>
 

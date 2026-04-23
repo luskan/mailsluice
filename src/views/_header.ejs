@@ -1,28 +1,32 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="mailsluice">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title><%= typeof title !== 'undefined' ? title : 'Mailsluice' %></title>
   <link rel="stylesheet" href="/public/styles.css">
 </head>
-<body>
-  <nav>
-    <strong>Mailsluice</strong>
-    <% if (typeof user !== 'undefined' && user) { %>
-      <a href="/">Home</a>
-      <a href="/sources">Sources</a>
-      <a href="/destinations">Destination</a>
-      <a href="/account/password">Password</a>
-      <% if (user.isAdmin) { %>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/audit">Audit</a>
-        <a href="/admin/events">Events</a>
+<body class="bg-base-100 text-base-content">
+  <div class="navbar bg-base-200 border-b border-base-300 shadow-sm px-4 gap-2 flex-wrap">
+    <div class="flex-1 flex items-center gap-2 flex-wrap">
+      <span class="text-lg font-semibold tracking-tight mr-4">Mailsluice</span>
+      <% if (typeof user !== 'undefined' && user) { %>
+        <a href="/" class="btn btn-ghost btn-sm">Home</a>
+        <a href="/sources" class="btn btn-ghost btn-sm">Sources</a>
+        <a href="/destinations" class="btn btn-ghost btn-sm">Destination</a>
+        <a href="/account/password" class="btn btn-ghost btn-sm">Password</a>
+        <% if (user.isAdmin) { %>
+          <a href="/admin/users" class="btn btn-ghost btn-sm">Users</a>
+          <a href="/admin/audit" class="btn btn-ghost btn-sm">Audit</a>
+          <a href="/admin/events" class="btn btn-ghost btn-sm">Events</a>
+        <% } %>
       <% } %>
-      <form method="POST" action="/logout" class="nav-logout">
+    </div>
+    <% if (typeof user !== 'undefined' && user) { %>
+      <form method="POST" action="/logout" class="flex-none">
         <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-        <button type="submit" class="secondary">Logout (<%= user.username %>)</button>
+        <button type="submit" class="btn btn-sm btn-outline">Logout (<%= user.username %>)</button>
       </form>
     <% } %>
-  </nav>
-  <main>
+  </div>
+  <main class="w-full max-w-5xl mx-auto px-4 py-6">
