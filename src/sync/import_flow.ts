@@ -8,6 +8,8 @@ export type RawMessage = {
   messageIdHeader: string | null;
   dateHeader: Date | null;
   externalUid: string;
+  alreadySeen?: boolean;
+  labelOverride?: string;
 };
 
 export type ImportOutcome =
@@ -69,11 +71,11 @@ export type ImportContext = {
   log: (level: 'info' | 'warn' | 'error', msg: string, meta?: Record<string, unknown>) => void;
 };
 
-async function resolveTag(ctx: ImportContext): Promise<string> {
-  const key = resolveTagCacheKey(ctx.sourceId, ctx.destinationTag);
+async function resolveTag(ctx: ImportContext, name: string): Promise<string> {
+  const key = resolveTagCacheKey(ctx.sourceId, name);
   const cached = ctx.tagCache.get(key);
   if (cached) return cached;
-  const id = await ctx.destination.ensureTag(ctx.destinationTag);
+  const id = await ctx.destination.ensureTag(name);
   ctx.tagCache.set(key, id);
   return id;
 }
@@ -105,12 +107,15 @@ export async function importOne(
     return { kind: 'deduplicated' };
   }
 
-  const tagId = await resolveTag(ctx);
+  const label = msg.labelOverride && msg.labelOverride.length > 0 ? msg.labelOverride : ctx.destinationTag;
+  const tagId = await resolveTag(ctx, label);
   const originalDate = msg.dateHeader ?? new Date();
 
   let destId: string;
   try {
-    destId = await ctx.destination.importMessage(msg.raw, tagId, originalDate);
+    destId = await ctx.destination.importMessage(msg.raw, tagId, originalDate, {
+      alreadySeen: msg.alreadySeen === true,
+    });
   } catch (err) {
     throw new ImportError(
       'destination.importMessage failed; message is NOT marked imported (will retry next cycle)',

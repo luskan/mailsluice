@@ -27,8 +27,38 @@ type SourceRow = {
   last_error: string | null;
   last_sync_at: string | null;
   skipped_count: number;
+  post_import_action: string;
   created_at: string;
 };
+
+type FolderRow = {
+  source_id: number;
+  folder_path: string;
+  label_name: string;
+  enabled: number;
+  uidvalidity: number | null;
+  last_uid: number;
+};
+
+const PostImportAction = z.enum(['none', 'mark_read', 'delete']);
+
+const PATH_CONTROL_CHARS = /[\u0000-\u001f\u007f]/;
+
+const FolderEntry = z.object({
+  path: z
+    .string()
+    .min(1)
+    .max(512)
+    .refine((s) => !PATH_CONTROL_CHARS.test(s), { message: 'folder path contains control characters' }),
+  label: z
+    .string()
+    .min(1)
+    .max(256)
+    .refine((s) => !PATH_CONTROL_CHARS.test(s), { message: 'label contains control characters' }),
+  enabled: z.union([z.boolean(), z.literal('1'), z.literal('0'), z.literal('true'), z.literal('false')]).transform((v) => v === true || v === '1' || v === 'true'),
+});
+
+const FoldersJson = z.array(FolderEntry).min(1).max(100);
 
 const SourceInput = z.object({
   name: z.string().min(1).max(100),
@@ -41,6 +71,8 @@ const SourceInput = z.object({
   destination_tag: z.string().min(1),
   destination_id: z.coerce.number().int().positive(),
   poll_interval_seconds: z.coerce.number().int().positive().max(86400).optional(),
+  folders_json: z.string().optional(),
+  post_import_action: PostImportAction.optional(),
 });
 
 const TestInput = z.object({
@@ -52,6 +84,54 @@ const TestInput = z.object({
   password: z.string().optional(),
   source_id: z.coerce.number().int().positive().optional(),
 });
+
+const DiscoverInput = TestInput;
+
+type ParsedFolder = { path: string; label: string; enabled: boolean };
+
+function parseFolders(raw: unknown): { ok: true; folders: ParsedFolder[] } | { ok: false; error: string } {
+  if (typeof raw !== 'string' || raw.length === 0) {
+    return { ok: false, error: 'no folders provided' };
+  }
+  let arr: unknown;
+  try {
+    arr = JSON.parse(raw);
+  } catch {
+    return { ok: false, error: 'folders payload is not valid JSON' };
+  }
+  const parsed = FoldersJson.safeParse(arr);
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.issues[0]?.message ?? 'invalid folders' };
+  }
+  const seen = new Set<string>();
+  const out: ParsedFolder[] = [];
+  let anyEnabled = false;
+  for (const f of parsed.data) {
+    const path = f.path.trim();
+    const label = f.label.trim();
+    if (!path || !label) {
+      return { ok: false, error: 'folder path and label are required' };
+    }
+    if (seen.has(path)) {
+      return { ok: false, error: `duplicate folder: ${path}` };
+    }
+    seen.add(path);
+    if (f.enabled) anyEnabled = true;
+    out.push({ path, label, enabled: f.enabled });
+  }
+  if (!anyEnabled) {
+    return { ok: false, error: 'at least one folder must be enabled' };
+  }
+  // Must include INBOX and it must be enabled.
+  const inbox = out.find((f) => f.path === 'INBOX');
+  if (!inbox) {
+    return { ok: false, error: 'INBOX mapping is required' };
+  }
+  if (!inbox.enabled) {
+    return { ok: false, error: 'INBOX must be enabled' };
+  }
+  return { ok: true, folders: out };
+}
 
 function loadUser(
   app: FastifyInstance,
@@ -68,7 +148,7 @@ function listForUser(app: FastifyInstance, userId: number): Array<SourceRow & { 
     .prepare(
       `SELECT s.id, s.user_id, s.destination_id, s.name, s.type, s.host, s.port, s.use_tls, s.username,
               s.password_encrypted, s.destination_tag, s.poll_interval_seconds, s.enabled, s.last_error,
-              s.last_sync_at, s.skipped_count, s.created_at,
+              s.last_sync_at, s.skipped_count, s.post_import_action, s.created_at,
               (SELECT COUNT(*) FROM imported_messages WHERE source_id = s.id) AS imported_count
        FROM sources s WHERE s.user_id = ? ORDER BY s.id`,
     )
@@ -92,10 +172,48 @@ function userDestinations(
     .all(userId) as Array<{ id: number; type: string; account_identifier: string | null }>;
 }
 
+function folderRowsForSource(app: FastifyInstance, sourceId: number): FolderRow[] {
+  return app.db
+    .prepare(
+      'SELECT source_id, folder_path, label_name, enabled, uidvalidity, last_uid FROM source_folders WHERE source_id = ? ORDER BY folder_path',
+    )
+    .all(sourceId) as FolderRow[];
+}
+
+function writeFolderMapping(
+  app: FastifyInstance,
+  sourceId: number,
+  folders: ParsedFolder[],
+): void {
+  const prior = folderRowsForSource(app, sourceId);
+  const priorByPath = new Map(prior.map((r) => [r.folder_path, r]));
+  const tx = app.db.transaction(() => {
+    app.db.prepare('DELETE FROM source_folders WHERE source_id = ?').run(sourceId);
+    const ins = app.db.prepare(
+      "INSERT INTO source_folders (source_id, folder_path, label_name, enabled, uidvalidity, last_uid, updated_at) VALUES (?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ','now'))",
+    );
+    for (const f of folders) {
+      const old = priorByPath.get(f.path);
+      ins.run(
+        sourceId,
+        f.path,
+        f.label,
+        f.enabled ? 1 : 0,
+        old?.uidvalidity ?? null,
+        old?.last_uid ?? 0,
+      );
+    }
+  });
+  tx();
+}
+
 export async function registerSourceRoutes(app: FastifyInstance): Promise<void> {
   app.post(
     '/sources/test',
-    { preHandler: [requireLogin, app.csrfProtection] },
+    {
+      preHandler: [requireLogin, app.csrfProtection],
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
     async (req, reply) => {
       const user = loadUser(app, req.session.userId!);
       const parsed = TestInput.safeParse(req.body);
@@ -149,6 +267,64 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
     },
   );
 
+  app.post(
+    '/sources/folders/discover',
+    {
+      preHandler: [requireLogin, app.csrfProtection],
+      config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
+    },
+    async (req, reply) => {
+      const user = loadUser(app, req.session.userId!);
+      const parsed = DiscoverInput.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.send({
+          ok: false,
+          error: parsed.error.issues[0]?.message ?? 'invalid form',
+        });
+      }
+      const v = parsed.data;
+      if (v.type !== 'imap') {
+        return reply.send({ ok: false, error: 'folder discovery is only available for IMAP sources' });
+      }
+      const useTls = v.use_tls === '1' || v.use_tls === 'on' || v.use_tls === 'true';
+
+      let password = v.password && v.password.length > 0 ? v.password : '';
+      if (!password && typeof v.source_id === 'number') {
+        const row = app.db
+          .prepare('SELECT user_id, password_encrypted FROM sources WHERE id = ?')
+          .get(v.source_id) as { user_id: number; password_encrypted: Buffer } | undefined;
+        if (row && row.user_id === user.id) {
+          password = decrypt(
+            row.password_encrypted,
+            app.appConfig.encryptionKeys,
+            `sources.password:${v.source_id}`,
+          ).toString('utf8');
+        }
+      }
+      if (!password) {
+        return reply.send({ ok: false, error: 'Enter the password to discover folders.' });
+      }
+
+      try {
+        await assertPublicHost(v.host, allowPrivate(app.appConfig.APP_ALLOW_PRIVATE_SOURCES));
+      } catch (err) {
+        if (err instanceof PrivateHostError) {
+          return reply.send({ ok: false, error: err.message });
+        }
+        throw err;
+      }
+
+      const result = await app.listImapFolders({
+        host: v.host,
+        port: v.port,
+        useTls,
+        username: v.username,
+        password,
+      });
+      return reply.send(result);
+    },
+  );
+
   app.get('/sources', { preHandler: requireLogin }, async (req, reply) => {
     const user = loadUser(app, req.session.userId!);
     const token = await reply.generateCsrf();
@@ -183,6 +359,7 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
       csrfToken: token,
       flash: takeFlash(req),
       source: null,
+      folders: [],
       destinations: userDestinations(app, user.id),
       formError: null,
     });
@@ -211,6 +388,16 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
         return reply.redirect('/sources/new');
       }
 
+      let folders: ParsedFolder[] | null = null;
+      if (v.type === 'imap') {
+        const fr = parseFolders(v.folders_json);
+        if (!fr.ok) {
+          req.session.flash = `Folder mapping error: ${fr.error}`;
+          return reply.redirect('/sources/new');
+        }
+        folders = fr.folders;
+      }
+
       const useTls = v.use_tls === '1' || v.use_tls === 'on' || v.use_tls === 'true';
       try {
         await assertPublicHost(v.host, allowPrivate(app.appConfig.APP_ALLOW_PRIVATE_SOURCES));
@@ -234,10 +421,12 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
         return reply.redirect('/sources/new');
       }
 
+      const postAction = v.post_import_action ?? 'none';
+
       const insertTx = app.db.transaction((): number => {
         const res = app.db
           .prepare(
-            'INSERT INTO sources (user_id, destination_id, name, type, host, port, use_tls, username, password_encrypted, destination_tag, poll_interval_seconds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO sources (user_id, destination_id, name, type, host, port, use_tls, username, password_encrypted, destination_tag, poll_interval_seconds, post_import_action) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
           )
           .run(
             user.id,
@@ -251,6 +440,7 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
             Buffer.alloc(0),
             v.destination_tag,
             v.type === 'pop' ? (v.poll_interval_seconds ?? 300) : null,
+            postAction,
           );
         const id = Number(res.lastInsertRowid);
         const enc = encrypt(
@@ -259,6 +449,14 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
           `sources.password:${id}`,
         );
         app.db.prepare('UPDATE sources SET password_encrypted = ? WHERE id = ?').run(enc, id);
+        if (folders) {
+          const ins = app.db.prepare(
+            "INSERT INTO source_folders (source_id, folder_path, label_name, enabled, uidvalidity, last_uid, updated_at) VALUES (?, ?, ?, ?, NULL, 0, strftime('%Y-%m-%dT%H:%M:%fZ','now'))",
+          );
+          for (const f of folders) {
+            ins.run(id, f.path, f.label, f.enabled ? 1 : 0);
+          }
+        }
         return id;
       });
       const newId = insertTx();
@@ -267,7 +465,14 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
         action: 'source.created',
         targetType: 'source',
         targetId: newId,
-        details: { name: v.name, type: v.type, host: v.host, destination_id: v.destination_id },
+        details: {
+          name: v.name,
+          type: v.type,
+          host: v.host,
+          destination_id: v.destination_id,
+          folder_count: folders?.length ?? 0,
+          post_import_action: postAction,
+        },
         req,
       });
       req.session.flash = `Source "${v.name}" added. Connection test passed.`;
@@ -288,11 +493,17 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
         return reply.code(404).send({ error: 'not found' });
       }
       const token = await reply.generateCsrf();
+      const folders = folderRowsForSource(app, id).map((r) => ({
+        path: r.folder_path,
+        label: r.label_name,
+        enabled: r.enabled === 1,
+      }));
       return reply.view('sources/form.ejs', {
         user,
         csrfToken: token,
         flash: takeFlash(req),
         source: row,
+        folders,
         destinations: userDestinations(app, user.id),
         formError: null,
       });
@@ -323,6 +534,16 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
       if (!own) {
         req.session.flash = 'Selected destination does not belong to you.';
         return reply.redirect(`/sources/${id}`);
+      }
+
+      let folders: ParsedFolder[] | null = null;
+      if (v.type === 'imap') {
+        const fr = parseFolders(v.folders_json);
+        if (!fr.ok) {
+          req.session.flash = `Folder mapping error: ${fr.error}`;
+          return reply.redirect(`/sources/${id}`);
+        }
+        folders = fr.folders;
       }
 
       const useTls = v.use_tls === '1' || v.use_tls === 'on' || v.use_tls === 'true';
@@ -356,34 +577,52 @@ export async function registerSourceRoutes(app: FastifyInstance): Promise<void> 
         return reply.redirect(`/sources/${id}`);
       }
 
+      const postAction = v.post_import_action ?? 'none';
+
       const encPw = encrypt(
         password,
         app.appConfig.encryptionKeys,
         `sources.password:${id}`,
       );
-      app.db
-        .prepare(
-          'UPDATE sources SET destination_id = ?, name = ?, type = ?, host = ?, port = ?, use_tls = ?, username = ?, password_encrypted = ?, destination_tag = ?, poll_interval_seconds = ? WHERE id = ?',
-        )
-        .run(
-          v.destination_id,
-          v.name,
-          v.type,
-          v.host,
-          v.port,
-          useTls ? 1 : 0,
-          v.username,
-          encPw,
-          v.destination_tag,
-          v.type === 'pop' ? (v.poll_interval_seconds ?? 300) : null,
-          id,
-        );
+      const updateTx = app.db.transaction(() => {
+        app.db
+          .prepare(
+            'UPDATE sources SET destination_id = ?, name = ?, type = ?, host = ?, port = ?, use_tls = ?, username = ?, password_encrypted = ?, destination_tag = ?, poll_interval_seconds = ?, post_import_action = ? WHERE id = ?',
+          )
+          .run(
+            v.destination_id,
+            v.name,
+            v.type,
+            v.host,
+            v.port,
+            useTls ? 1 : 0,
+            v.username,
+            encPw,
+            v.destination_tag,
+            v.type === 'pop' ? (v.poll_interval_seconds ?? 300) : null,
+            postAction,
+            id,
+          );
+        if (folders) {
+          writeFolderMapping(app, id, folders);
+        } else {
+          app.db.prepare('DELETE FROM source_folders WHERE source_id = ?').run(id);
+        }
+      });
+      updateTx();
       await app.syncManager?.reloadSource(id).catch(() => undefined);
       audit(app.db, {
         action: 'source.updated',
         targetType: 'source',
         targetId: id,
-        details: { name: v.name, type: v.type, host: v.host, password_changed: Boolean(v.password) },
+        details: {
+          name: v.name,
+          type: v.type,
+          host: v.host,
+          password_changed: Boolean(v.password),
+          folder_count: folders?.length ?? 0,
+          post_import_action: postAction,
+        },
         req,
       });
       req.session.flash = `Source "${v.name}" updated.`;

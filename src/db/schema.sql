@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS sources (
   last_error            TEXT,
   last_sync_at          TEXT,
   skipped_count         INTEGER NOT NULL DEFAULT 0,
+  post_import_action    TEXT NOT NULL DEFAULT 'none',
   created_at            TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
@@ -50,6 +51,19 @@ CREATE TABLE IF NOT EXISTS sync_state (
   last_uid    INTEGER,
   updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
+
+CREATE TABLE IF NOT EXISTS source_folders (
+  source_id    INTEGER NOT NULL REFERENCES sources(id) ON DELETE CASCADE,
+  folder_path  TEXT NOT NULL,
+  label_name   TEXT NOT NULL,
+  enabled      INTEGER NOT NULL DEFAULT 1 CHECK (enabled IN (0, 1)),
+  uidvalidity  INTEGER,
+  last_uid     INTEGER NOT NULL DEFAULT 0,
+  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+  PRIMARY KEY (source_id, folder_path)
+);
+
+CREATE INDEX IF NOT EXISTS idx_source_folders_source ON source_folders(source_id);
 
 CREATE TABLE IF NOT EXISTS imported_messages (
   id                      INTEGER PRIMARY KEY AUTOINCREMENT,

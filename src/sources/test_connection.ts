@@ -13,7 +13,19 @@ export type TestConnectionResult =
   | { ok: true }
   | { ok: false; error: string };
 
-function friendlyError(args: TestConnectionArgs, raw: string): string {
+export type DiscoveredFolder = {
+  path: string;
+  delimiter: string | null;
+  specialUse: string | null;
+};
+
+export type ListFoldersArgs = Omit<TestConnectionArgs, 'type'>;
+
+export type ListFoldersResult =
+  | { ok: true; folders: DiscoveredFolder[] }
+  | { ok: false; error: string };
+
+function friendlyError(args: { type: 'imap' | 'pop'; host: string; port: number; useTls: boolean }, raw: string): string {
   const isImap = args.type === 'imap';
   const plaintextPort = isImap ? 143 : 110;
   const tlsPort = isImap ? 993 : 995;
@@ -40,19 +52,23 @@ function friendlyError(args: TestConnectionArgs, raw: string): string {
   return raw;
 }
 
-async function testImap(a: TestConnectionArgs): Promise<TestConnectionResult> {
+function buildImapClient(a: ListFoldersArgs, timeoutMs: number): ImapFlow {
   const client = new ImapFlow({
     host: a.host,
     port: a.port,
     secure: a.useTls,
     auth: { user: a.username, pass: a.password },
     logger: false,
-    socketTimeout: 10_000,
-    connectionTimeout: 10_000,
+    socketTimeout: timeoutMs,
+    connectionTimeout: timeoutMs,
   });
   // ImapFlow is an EventEmitter; an unhandled 'error' crashes the process.
-  // The error still surfaces through the awaited connect() rejection below.
   client.on('error', () => {});
+  return client;
+}
+
+async function testImap(a: TestConnectionArgs): Promise<TestConnectionResult> {
+  const client = buildImapClient(a, 10_000);
   try {
     await client.connect();
     const box = await client.mailboxOpen('INBOX', { readOnly: true });
@@ -99,4 +115,71 @@ async function testPop(a: TestConnectionArgs): Promise<TestConnectionResult> {
 
 export async function testConnection(a: TestConnectionArgs): Promise<TestConnectionResult> {
   return a.type === 'imap' ? testImap(a) : testPop(a);
+}
+
+// Special-use flags we never want to sync. \All re-fetches INBOX contents.
+const SKIP_SPECIAL_USE = new Set([
+  '\\Sent',
+  '\\Drafts',
+  '\\Trash',
+  '\\Junk',
+  '\\All',
+  '\\Archive',
+  '\\Flagged',
+  '\\Important',
+]);
+
+type ImapFlowMailbox = {
+  path?: string;
+  delimiter?: string;
+  specialUse?: string | null;
+  flags?: Iterable<string> | Set<string>;
+  subscribed?: boolean;
+};
+
+function hasFlag(flags: ImapFlowMailbox['flags'], name: string): boolean {
+  if (!flags) return false;
+  if (flags instanceof Set) return flags.has(name);
+  for (const f of flags) if (f === name) return true;
+  return false;
+}
+
+export async function listImapFolders(a: ListFoldersArgs): Promise<ListFoldersResult> {
+  const client = buildImapClient(a, 15_000);
+  try {
+    await client.connect();
+    const boxes = (await client.list()) as ImapFlowMailbox[];
+    const out: DiscoveredFolder[] = [];
+    for (const m of boxes) {
+      if (!m.path) continue;
+      if (hasFlag(m.flags, '\\Noselect') || hasFlag(m.flags, '\\NonExistent')) continue;
+      const su = m.specialUse ?? null;
+      if (su && SKIP_SPECIAL_USE.has(su) && m.path !== 'INBOX') continue;
+      out.push({
+        path: m.path,
+        delimiter: m.delimiter ?? null,
+        specialUse: su,
+      });
+    }
+    // Ensure INBOX comes first; otherwise preserve server order.
+    out.sort((x, y) => {
+      if (x.path === 'INBOX' && y.path !== 'INBOX') return -1;
+      if (y.path === 'INBOX' && x.path !== 'INBOX') return 1;
+      return 0;
+    });
+    // Defensive cap: a hostile/misconfigured server could advertise tens of
+    // thousands of mailboxes. The form validation caps mapping at 100 anyway.
+    const MAX_DISCOVERED = 500;
+    const trimmed = out.length > MAX_DISCOVERED ? out.slice(0, MAX_DISCOVERED) : out;
+    return { ok: true, folders: trimmed };
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    return { ok: false, error: friendlyError({ ...a, type: 'imap' }, raw) };
+  } finally {
+    try {
+      await client.logout();
+    } catch {
+      // best effort
+    }
+  }
 }

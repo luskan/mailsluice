@@ -26,8 +26,11 @@ import { GmailFactory } from './destinations/gmail.ts';
 import { registerSourceRoutes } from './sources/routes.ts';
 import {
   testConnection as realTestConnection,
+  listImapFolders as realListImapFolders,
   type TestConnectionArgs,
   type TestConnectionResult,
+  type ListFoldersArgs,
+  type ListFoldersResult,
 } from './sources/test_connection.ts';
 import { relativeTime } from './ui/time.ts';
 import { APP_VERSION } from './version.ts';
@@ -40,6 +43,7 @@ declare module 'fastify' {
     appConfig: Config;
     syncManager?: SyncManager;
     testConnection: (args: TestConnectionArgs) => Promise<TestConnectionResult>;
+    listImapFolders: (args: ListFoldersArgs) => Promise<ListFoldersResult>;
   }
   interface Session {
     userId?: number;
@@ -63,6 +67,7 @@ export async function buildApp(cfg: Config, db: Db): Promise<FastifyInstance> {
   app.decorate('appConfig', cfg);
   app.decorate('syncManager', undefined as SyncManager | undefined);
   app.decorate('testConnection', realTestConnection);
+  app.decorate('listImapFolders', realListImapFolders);
 
   if (cfg.APP_HTTP_AUTH && cfg.APP_HTTP_AUTH.length > 0) {
     registerBasicAuth(app, cfg.APP_HTTP_AUTH);

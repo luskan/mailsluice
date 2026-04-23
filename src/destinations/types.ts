@@ -2,10 +2,19 @@ export type ProbeResult =
   | { ok: true; email: string }
   | { ok: false; error: string };
 
+export type ImportOptions = {
+  alreadySeen?: boolean;
+};
+
 export interface Destination {
   readonly type: string;
   ensureTag(name: string): Promise<string>;
-  importMessage(raw: Buffer, tagId: string, originalDate: Date): Promise<string>;
+  importMessage(
+    raw: Buffer,
+    tagId: string,
+    originalDate: Date,
+    options?: ImportOptions,
+  ): Promise<string>;
   probe(): Promise<ProbeResult>;
   dispose?(): void | Promise<void>;
 }

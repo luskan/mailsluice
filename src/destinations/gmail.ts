@@ -4,6 +4,7 @@ import type {
   AuthStarter,
   Destination,
   DestinationFactory,
+  ImportOptions,
   ProbeResult,
 } from './types.ts';
 
@@ -149,28 +150,35 @@ class GmailDestination implements Destination {
   private readonly pendingLabelCreates = new Map<string, Promise<string>>();
 
   async ensureTag(name: string): Promise<string> {
-    const cached = this.labelCache.get(name);
+    const key = normalizeLabelKey(name);
+    const cached = this.labelCache.get(key);
     if (cached) return cached;
-    const pending = this.pendingLabelCreates.get(name);
+    const pending = this.pendingLabelCreates.get(key);
     if (pending) return pending;
 
     const p = this.doEnsureTag(name).finally(() => {
       queueMicrotask(() => {
-        if (this.pendingLabelCreates.get(name) === p) {
-          this.pendingLabelCreates.delete(name);
+        if (this.pendingLabelCreates.get(key) === p) {
+          this.pendingLabelCreates.delete(key);
         }
       });
     });
-    this.pendingLabelCreates.set(name, p);
+    this.pendingLabelCreates.set(key, p);
     return p;
   }
 
   private async doEnsureTag(name: string): Promise<string> {
     await this.ensureValidToken();
+    const key = normalizeLabelKey(name);
     const existing = await this.api.users.labels.list({ userId: 'me' });
-    const hit = existing.data.labels?.find((l) => l.name === name && l.id);
+    // Gmail treats label names as case-insensitive for uniqueness, so match
+    // the same way when looking up existing labels; otherwise we'd try to
+    // create a label that Gmail will reject with "Label name exists or
+    // conflicts". We also NFC-normalize and trim because Gmail's server-side
+    // uniqueness check appears to do the same.
+    const hit = findLabelByNameCI(existing.data.labels, name);
     if (hit?.id) {
-      this.labelCache.set(name, hit.id);
+      this.labelCache.set(key, hit.id);
       return hit.id;
     }
     try {
@@ -180,31 +188,50 @@ class GmailDestination implements Destination {
       });
       const id = created.data.id;
       if (!id) throw new Error('label creation returned no id');
-      this.labelCache.set(name, id);
+      this.labelCache.set(key, id);
       return id;
     } catch (err) {
-      const status = (err as { code?: number; status?: number }).code ?? (err as { status?: number }).status;
+      const status = extractHttpStatus(err);
       if (status !== 409 && status !== 400) throw err;
-      // Another concurrent actor created the same label. Re-list and pick it up.
+      // Either a concurrent actor created the same label, or the name
+      // collides with an existing one under a different casing. Re-list
+      // and pick it up (case-insensitively).
       const retry = await this.api.users.labels.list({ userId: 'me' });
-      const got = retry.data.labels?.find((l) => l.name === name && l.id);
+      const got = findLabelByNameCI(retry.data.labels, name);
       if (got?.id) {
-        this.labelCache.set(name, got.id);
+        this.labelCache.set(key, got.id);
         return got.id;
       }
-      throw err;
+      const raw = err instanceof Error ? err.message : String(err);
+      const wrapped = new Error(
+        `Gmail rejected label "${name}" (${raw}). It likely collides with a reserved name; pick a different one.`,
+        { cause: err },
+      );
+      throw wrapped;
     }
   }
 
-  async importMessage(raw: Buffer, tagId: string, _originalDate: Date): Promise<string> {
+  async importMessage(
+    raw: Buffer,
+    tagId: string,
+    _originalDate: Date,
+    options?: ImportOptions,
+  ): Promise<string> {
     await this.ensureValidToken();
     const { Readable } = await import('node:stream');
+    // Since Gmail's Jan 2015 change, import no longer auto-applies INBOX or
+    // UNREAD. We add both (mirroring normal delivery) and skip UNREAD when
+    // the source had the message already read. INBOX is always present so
+    // the user's filters and notifications fire the same way they would on
+    // fresh mail.
+    const labelIds = [tagId, 'INBOX'];
+    if (!options?.alreadySeen) labelIds.push('UNREAD');
     const res = await this.api.users.messages.import({
       userId: 'me',
       internalDateSource: 'dateHeader',
       neverMarkSpam: false,
       processForCalendar: false,
-      requestBody: { labelIds: [tagId] },
+      requestBody: { labelIds },
       media: { mimeType: 'message/rfc822', body: Readable.from(raw) },
     });
     const id = res.data.id;
@@ -249,5 +276,36 @@ export const GmailFactory: DestinationFactory = {
     );
   },
 };
+
+function normalizeLabelKey(name: string): string {
+  // Gmail compares label names server-side after NFC + whitespace
+  // normalization. Do the same so list-then-match behaves deterministically
+  // for inputs like "Work ", "Work/Clients", "Cáfe" vs "Café".
+  // toLowerCase without a locale is correct here; toLocaleLowerCase would
+  // mishandle Turkish I.
+  return name.normalize('NFC').trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+function findLabelByNameCI(
+  labels: gmail_v1.Schema$Label[] | undefined,
+  name: string,
+): gmail_v1.Schema$Label | undefined {
+  if (!labels) return undefined;
+  const want = normalizeLabelKey(name);
+  return labels.find(
+    (l) => typeof l.name === 'string' && normalizeLabelKey(l.name) === want && l.id,
+  );
+}
+
+function extractHttpStatus(err: unknown): number | undefined {
+  if (!err || typeof err !== 'object') return undefined;
+  const e = err as { code?: unknown; status?: unknown; response?: { status?: unknown } };
+  const candidates = [e.code, e.status, e.response?.status];
+  for (const c of candidates) {
+    if (typeof c === 'number') return c;
+    if (typeof c === 'string' && /^\d+$/.test(c)) return Number(c);
+  }
+  return undefined;
+}
 
 export { GmailDestination, GmailAuthStarter, SCOPES as GMAIL_SCOPES };

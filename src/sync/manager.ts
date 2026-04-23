@@ -20,6 +20,7 @@ type SourceRow = {
   password_encrypted: Buffer;
   destination_tag: string;
   poll_interval_seconds: number | null;
+  post_import_action: string | null;
   enabled: number;
 };
 
@@ -61,7 +62,7 @@ export class SyncManager {
   async startAll(): Promise<void> {
     const rows = this.db
       .prepare(
-        'SELECT id, user_id, destination_id, type, host, port, use_tls, username, password_encrypted, destination_tag, poll_interval_seconds, enabled FROM sources WHERE enabled = 1',
+        'SELECT id, user_id, destination_id, type, host, port, use_tls, username, password_encrypted, destination_tag, poll_interval_seconds, post_import_action, enabled FROM sources WHERE enabled = 1',
       )
       .all() as SourceRow[];
     for (const row of rows) {
@@ -82,7 +83,7 @@ export class SyncManager {
     await this.stopOne(sourceId);
     const row = this.db
       .prepare(
-        'SELECT id, user_id, destination_id, type, host, port, use_tls, username, password_encrypted, destination_tag, poll_interval_seconds, enabled FROM sources WHERE id = ?',
+        'SELECT id, user_id, destination_id, type, host, port, use_tls, username, password_encrypted, destination_tag, poll_interval_seconds, post_import_action, enabled FROM sources WHERE id = ?',
       )
       .get(sourceId) as SourceRow | undefined;
     if (!row || row.enabled !== 1) return;
@@ -249,6 +250,7 @@ export class SyncManager {
         useTls: row.use_tls === 1,
         username: row.username,
         password,
+        postImportAction: coercePostImportAction(row.post_import_action),
       });
     } else {
       worker = new PopSourceWorker(deps, {
@@ -264,4 +266,9 @@ export class SyncManager {
     this.workers.set(row.id, worker);
     await worker.start();
   }
+}
+
+function coercePostImportAction(raw: string | null): 'none' | 'mark_read' | 'delete' {
+  if (raw === 'mark_read' || raw === 'delete') return raw;
+  return 'none';
 }

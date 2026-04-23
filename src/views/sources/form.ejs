@@ -47,17 +47,85 @@
         <% }); %>
       </select>
     </label>
-    <label>Destination tag (Gmail label) <input type="text" name="destination_tag" value="<%= source ? source.destination_tag : '' %>" placeholder="External/Yahoo" required></label>
-    <label>Poll interval (seconds, POP only) <input type="number" name="poll_interval_seconds" value="<%= source && source.poll_interval_seconds ? source.poll_interval_seconds : 300 %>"></label>
+    <label>Label prefix (Gmail)
+      <input type="text" id="label-prefix" name="destination_tag" value="<%= source ? source.destination_tag : '' %>" placeholder="External/Yahoo" required>
+    </label>
+    <p class="muted small">Used to prefill labels below. Edit to rename every auto-generated label in one place; rows you have edited are left alone.</p>
 
-    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
-      <button type="submit"><%= source ? 'Save changes' : 'Add source' %></button>
+    <label>Post-import action
+      <select name="post_import_action" id="post-import-action">
+        <option value="none" <%= !source || (source.post_import_action || 'none') === 'none' ? 'selected' : '' %>>Leave on source</option>
+        <option value="mark_read" <%= source && source.post_import_action === 'mark_read' ? 'selected' : '' %>>Mark as read on source</option>
+        <option value="delete" <%= source && source.post_import_action === 'delete' ? 'selected' : '' %>>Delete from source</option>
+      </select>
+    </label>
+
+    <label id="poll-wrap">Poll interval (seconds, POP only)
+      <input type="number" name="poll_interval_seconds" value="<%= source && source.poll_interval_seconds ? source.poll_interval_seconds : 300 %>">
+    </label>
+
+    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap; margin-top:0.75rem;">
       <button type="button" id="test-btn" class="secondary">Test connection</button>
       <span id="test-result" class="muted" aria-live="polite"></span>
     </div>
-    <p class="muted">Saving also runs a connection test; if it fails, nothing is stored. Use <em>Test connection</em> to check without saving.</p>
+
+    <div id="folders-card" class="card" style="margin-top:1rem;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:0.5rem; flex-wrap:wrap;">
+        <strong>Folders to sync</strong>
+        <div style="display:flex; gap:0.5rem; align-items:center;">
+          <button type="button" id="discover-btn" class="secondary">Discover folders</button>
+          <span id="discover-result" class="muted" aria-live="polite"></span>
+        </div>
+      </div>
+
+      <p class="muted small" id="folders-empty" style="margin-top:0.75rem;">
+        Test the connection first, then click <em>Discover folders</em> to list mailboxes from your source. INBOX is required and will be preselected. You can map multiple source folders into the same Gmail label (e.g. "External/Work") to funnel them.
+      </p>
+
+      <div id="folders-table-wrap" hidden>
+        <table id="folders-table" class="sources-table" style="margin-top:0.5rem;">
+          <colgroup>
+            <col style="width: 8%;">
+            <col style="width: 38%;">
+            <col style="width: 54%;">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Sync</th>
+              <th>Source folder</th>
+              <th>Gmail label</th>
+            </tr>
+          </thead>
+          <tbody id="folders-tbody"></tbody>
+        </table>
+        <p class="muted small" id="folders-hint" style="margin-top:0.5rem;"></p>
+      </div>
+
+      <input type="hidden" name="folders_json" id="folders-json" value="">
+    </div>
+
+    <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+      <button type="submit" id="save-btn"><%= source ? 'Save changes' : 'Add source' %></button>
+      <span id="save-hint" class="muted small" aria-live="polite"></span>
+    </div>
+    <p class="muted">Saving also runs a connection test; if it fails, nothing is stored.</p>
   </form>
 
+  <template id="folder-row-tpl">
+    <tr class="folder-row">
+      <td class="folder-sync-cell">
+        <input type="checkbox" class="folder-sync" checked>
+      </td>
+      <td class="folder-path"></td>
+      <td>
+        <input type="text" class="folder-label" autocomplete="off" list="folder-label-suggestions">
+      </td>
+    </tr>
+  </template>
+
+  <datalist id="folder-label-suggestions"></datalist>
+
+  <script id="folders-initial" type="application/json"><%- JSON.stringify(folders || []).replace(/</g, '\\u003c') %></script>
   <script src="/public/sources-form.js" defer></script>
 <% } %>
 

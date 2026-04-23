@@ -105,3 +105,16 @@ table.sources-table th, table.sources-table td { overflow: hidden; text-overflow
 table.sources-table td { vertical-align: middle; line-height: 1.3; }
 table.sources-table td.wrap { overflow: visible; text-overflow: clip; white-space: normal; }
 table.sources-table td.actions-col { overflow: visible; }
+
+#folders-table td.folder-path { white-space: normal; overflow-wrap: anywhere; }
+#folders-table .folder-label { width: 100%; max-width: 100%; padding: 0.4rem 0.5rem; background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 4px; }
+#folders-table tr.folder-funneled .folder-label { border-color: var(--accent); }
+#folders-table tr.folder-funneled td.folder-path::after {
+  content: " -- funneled";
+  color: var(--accent);
+  font-size: 0.78rem;
+  margin-left: 0.5rem;
+}
+#folders-table tr.folder-row td { vertical-align: middle; }
+#folders-table .folder-sync-cell { text-align: center; }
+#folders-table input[type="checkbox"]:disabled { opacity: 0.6; }
