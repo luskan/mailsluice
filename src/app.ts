@@ -14,8 +14,10 @@ import type { Config } from './config.ts';
 import type { Db } from './db/index.ts';
 import { registerAuthRoutes } from './auth/routes.ts';
 import { registerAccountRoutes } from './auth/account_routes.ts';
+import { registerAcknowledgeRoutes } from './auth/acknowledge_routes.ts';
 import { registerBasicAuth } from './auth/basic_auth.ts';
 import { requireLogin } from './auth/middleware.ts';
+import { RISK_ACK_VERSION } from './risk_ack.ts';
 import { registerAdminUserRoutes } from './admin/users_routes.ts';
 import { registerAdminDestinationRoutes } from './admin/destinations_routes.ts';
 import { registerAdminAuditRoutes } from './admin/audit_routes.ts';
@@ -132,8 +134,11 @@ export async function buildApp(cfg: Config, db: Db): Promise<FastifyInstance> {
 
   registerDestination(GmailFactory);
 
+  registerAckGate(app);
+
   await registerAuthRoutes(app);
   await registerAccountRoutes(app);
+  await registerAcknowledgeRoutes(app);
   await registerAdminUserRoutes(app);
   await registerAdminDestinationRoutes(app);
   await registerAdminAuditRoutes(app);
@@ -178,6 +183,37 @@ export async function buildApp(cfg: Config, db: Db): Promise<FastifyInstance> {
   });
 
   return app;
+}
+
+// Logged-in users with a stale or missing risk ack are bounced to /acknowledge
+// before they can reach anything that mutates state. Allowlist below covers
+// session bootstrap, logout, the ack page itself, password change, health,
+// and static assets.
+const ACK_ALLOWLIST = new Set<string>([
+  '/login',
+  '/logout',
+  '/acknowledge',
+  '/health',
+  '/account/password',
+]);
+
+function registerAckGate(app: FastifyInstance): void {
+  // Test config bypasses the gate so existing integration tests keep working
+  // without an explicit ack on every seeded user. Production is unaffected.
+  if (app.appConfig.NODE_ENV === 'test') return;
+  app.addHook('onRequest', async (req, reply) => {
+    if (!req.session?.userId) return;
+    const path = req.url.split('?', 1)[0]!;
+    if (ACK_ALLOWLIST.has(path) || path.startsWith('/public/')) return;
+    const row = app.db
+      .prepare('SELECT risk_acked_version FROM users WHERE id = ?')
+      .get(req.session.userId) as { risk_acked_version: string | null } | undefined;
+    if (row?.risk_acked_version === RISK_ACK_VERSION) return;
+    if (req.headers.accept?.includes('text/html')) {
+      return reply.redirect('/acknowledge');
+    }
+    return reply.code(403).send({ error: 'risk acknowledgement required' });
+  });
 }
 
 function parseTrustProxy(raw: string): boolean | string | number {

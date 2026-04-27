@@ -1,19 +1,22 @@
 import type Database from 'better-sqlite3';
 import { encrypt, encryptJson, type KeySet } from '../../src/crypto.ts';
 import { hashPassword } from '../../src/auth/hash.ts';
+import { RISK_ACK_VERSION } from '../../src/risk_ack.ts';
 
 export async function seedUser(
   db: Database.Database,
   username: string,
   password: string,
   isAdmin = false,
+  opts: { riskAcked?: boolean } = {},
 ): Promise<number> {
   const hash = await hashPassword(password);
+  const ack = opts.riskAcked === false ? null : RISK_ACK_VERSION;
   const r = db
     .prepare(
-      'INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?) RETURNING id',
+      'INSERT INTO users (username, password_hash, is_admin, risk_acked_version) VALUES (?, ?, ?, ?) RETURNING id',
     )
-    .get(username, hash, isAdmin ? 1 : 0) as { id: number };
+    .get(username, hash, isAdmin ? 1 : 0, ack) as { id: number };
   return r.id;
 }
 

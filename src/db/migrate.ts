@@ -9,6 +9,7 @@ export function migrate(db: Database.Database): void {
   const sql = readFileSync(schemaPath, 'utf8');
   db.exec(sql);
   ensureColumn(db, 'sources', 'post_import_action', "TEXT NOT NULL DEFAULT 'none'");
+  ensureColumn(db, 'users', 'risk_acked_version', 'TEXT');
 }
 
 function ensureColumn(

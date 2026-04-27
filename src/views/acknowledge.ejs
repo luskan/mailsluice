@@ -1,0 +1,55 @@
+<%- include('_header', { title: 'Acknowledge', user, csrfToken }) %>
+
+<div class="card bg-base-200 border border-base-300">
+  <div class="card-body prose max-w-none">
+    <h1>Before you continue</h1>
+
+    <p>Mailsluice is <strong>beta software</strong>. Read the points below
+    before pointing it at a real mailbox.</p>
+
+    <ul>
+      <li><strong>Beta.</strong> Bugs, breaking changes, and schema migrations
+      are likely between minor versions.</li>
+
+      <li><strong>The "Delete from source" option permanently deletes mail
+      on the source IMAP server</strong> after a successful import. It is
+      off by default and only takes effect if you select it on a per-source
+      basis. POP sources are never modified.</li>
+
+      <li><strong>Imports preserve original dates and headers.</strong>
+      Pointing Mailsluice at a large archive folder spreads thousands of
+      messages across years of your destination inbox. Dedup is by
+      Message-ID, so re-runs are idempotent, but the first run can flood
+      your inbox.</li>
+
+      <li><strong>Self-hosted secrets.</strong> Source mailbox credentials
+      and the destination OAuth refresh token are stored in
+      <code>./data/mailsluice.db</code>, encrypted with
+      <code>APP_ENCRYPTION_KEY</code>. Anyone who reads both the database
+      file and the encryption key can use those credentials.</li>
+
+      <li><strong>One-way only.</strong> No outbound from the source
+      account, no two-way sync of replies.</li>
+
+      <li><strong>No warranty.</strong> MIT license. You are running this on
+      your own responsibility.</li>
+    </ul>
+
+    <div class="mt-4 flex gap-2">
+      <form method="POST" action="/acknowledge">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn btn-primary">I understand and accept</button>
+      </form>
+      <form method="POST" action="/logout">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="btn btn-ghost">Log out</button>
+      </form>
+    </div>
+
+    <p class="text-xs text-base-content/60 mt-6">
+      Acknowledgement v<%= version %>.
+    </p>
+  </div>
+</div>
+
+<%- include('_footer') %>
