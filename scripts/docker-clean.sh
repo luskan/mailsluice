@@ -26,15 +26,20 @@ if [ "$answer" != "CONFIRM" ]; then
 fi
 
 # docker stop/rm fails with "permission denied" on snap docker + AppArmor
-# when the container runs as a non-root user. Killing the host PID is the
-# documented workaround (see scripts/docker-run.sh).
+# when the container runs as a non-root user. Fall back to killing the
+# host PID via sudo (see scripts/docker-run.sh for the same workaround).
 for c in $containers; do
   pid=$(docker inspect -f '{{if eq .State.Status "running"}}{{.State.Pid}}{{end}}' "$c" 2>/dev/null || true)
   docker stop "$c" >/dev/null 2>&1 || true
-  if [ -n "${pid:-}" ] && [ "$pid" != "0" ] && kill -0 "$pid" 2>/dev/null; then
-    sudo kill -9 "$pid" 2>/dev/null || kill -9 "$pid" 2>/dev/null || true
+  if docker rm -f "$c" >/dev/null 2>&1; then
+    continue
   fi
-  docker rm -f "$c" >/dev/null 2>&1 || true
+  if [ -n "${pid:-}" ] && [ "$pid" != "0" ]; then
+    echo "Container $c stuck. Killing host pid $pid (needs sudo)..."
+    sudo kill -9 "$pid" || true
+    sleep 1
+    docker rm -f "$c" >/dev/null 2>&1 || true
+  fi
 done
 
 for i in $images; do
@@ -45,8 +50,17 @@ for v in $volumes; do
   docker volume rm -f "$v" >/dev/null 2>&1 || true
 done
 
-echo "Done. Remaining mailsluice references:"
-docker ps -a --filter name=mailsluice --format '  container: {{.Names}} ({{.Status}})' || true
-docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '(^|/)mailsluice(:|$)' | sed 's/^/  image: /' || true
-docker volume ls --filter name=mailsluice -q | sed 's/^/  volume: /' || true
-echo "(empty above means clean.)"
+left_containers=$(docker ps -a --filter name=mailsluice --format '{{.Names}} ({{.Status}})' || true)
+left_images=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep -E '(^|/)mailsluice(:|$)' || true)
+left_volumes=$(docker volume ls --filter name=mailsluice -q || true)
+
+if [ -z "$left_containers" ] && [ -z "$left_images" ] && [ -z "$left_volumes" ]; then
+  echo "Done. Clean."
+  exit 0
+fi
+
+echo "Done, but some references remain:"
+[ -n "$left_containers" ] && printf '  container: %s\n' $left_containers
+[ -n "$left_images" ]     && printf '  image:     %s\n' $left_images
+[ -n "$left_volumes" ]    && printf '  volume:    %s\n' $left_volumes
+exit 1
