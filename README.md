@@ -19,17 +19,17 @@ Node 22, TypeScript, Fastify, EJS, better-sqlite3, ImapFlow,
 Easiest path. Pull from GitHub Container Registry:
 
 ```
-mkdir mailsluice && cd mailsluice && mkdir -p data
+mkdir mailsluice && cd mailsluice
 cat > .env <<EOF
 APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
 APP_SESSION_SECRET=$(openssl rand -hex 32)
 EOF
 docker run -d --name mailsluice \
   -p 3000:3000 \
-  -v "$(pwd)/data:/app/data" \
+  -v mailsluice-data:/app/data \
   --env-file .env \
   --restart unless-stopped \
-  ghcr.io/luskan/mailsluice:latest
+  ghcr.io/luskan/mailsluice:0.2
 
 docker logs mailsluice
 ```
@@ -37,12 +37,13 @@ docker logs mailsluice
 The log block prints the admin username and a one-time random password --
 save them. Open `http://localhost:3000/`.
 
-Available tags: `latest`, semver (`0.2.0`, `0.2`), `sha-<short>`. The major-only
-tag (`0`, `1`, ...) is suppressed until v1.
+A named volume (`mailsluice-data`) is used instead of a host bind mount so
+the image works the same on vanilla, snap, and rootless Docker. To back it
+up: stop the container, then
+`docker run --rm -v mailsluice-data:/d -v "$(pwd):/out" alpine tar czf /out/mailsluice-backup.tar.gz -C /d .`.
 
-The package is private on first publish. Open it under your GitHub profile's
-**Packages**, set visibility to public, and link it to the repo so anonymous
-`docker pull` works.
+Tags: `0.2.1` (immutable), `0.2` (rolls forward inside 0.2.x), `latest`
+(rolls forward across all releases), `sha-<short>` (per commit).
 
 ### Docker (build from source)
 
@@ -70,7 +71,7 @@ Needs Docker Compose 2.24+ and an existing external network named `web` (or
 override `TRAEFIK_NETWORK`). Other overrides: `TRAEFIK_ENTRYPOINT`,
 `TRAEFIK_CERTRESOLVER`, `MAILSLUICE_ROUTER_NAME`. The overlay builds from
 source; for a prebuilt image behind Traefik, write your own compose using
-`ghcr.io/luskan/mailsluice:latest`.
+`ghcr.io/luskan/mailsluice:0.2`.
 
 ### Local (no Docker)
 
