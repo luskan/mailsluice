@@ -29,7 +29,7 @@ docker run -d --name mailsluice \
   -v "$(pwd)/data:/app/data" \
   --env-file .env \
   --restart unless-stopped \
-  ghcr.io/marcinj/mailsluice:latest
+  ghcr.io/luskan/mailsluice:latest
 
 docker logs mailsluice
 ```
@@ -47,7 +47,7 @@ The package is private on first publish. Open it under your GitHub profile's
 ### Docker (build from source)
 
 ```
-git clone https://github.com/MarcinJ/mailsluice && cd mailsluice
+git clone https://github.com/luskan/mailsluice && cd mailsluice
 ./scripts/create_env.sh
 ./scripts/docker-run.sh --clear
 ```
@@ -70,7 +70,7 @@ Needs Docker Compose 2.24+ and an existing external network named `web` (or
 override `TRAEFIK_NETWORK`). Other overrides: `TRAEFIK_ENTRYPOINT`,
 `TRAEFIK_CERTRESOLVER`, `MAILSLUICE_ROUTER_NAME`. The overlay builds from
 source; for a prebuilt image behind Traefik, write your own compose using
-`ghcr.io/marcinj/mailsluice:latest`.
+`ghcr.io/luskan/mailsluice:latest`.
 
 ### Local (no Docker)
 

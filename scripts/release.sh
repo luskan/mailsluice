@@ -35,4 +35,4 @@ NEW_TAG=$(npm version "$LEVEL" -m "release %s")
 echo "Bumped to $NEW_TAG"
 
 git push --follow-tags origin main
-echo "Pushed. Watch: github.com/MarcinJ/mailsluice/actions"
+echo "Pushed. Watch: github.com/luskan/mailsluice/actions"
