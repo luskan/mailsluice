@@ -127,6 +127,49 @@ SQLite WAL at `./data/mailsluice.db`. To back up: stop the app first, or
 copy `mailsluice.db` together with `mailsluice.db-wal` and `mailsluice.db-shm`.
 Tearing down the container does not touch `./data`.
 
+## Update
+
+Schema migrations run on startup; your data and admin login survive an
+update. Back up first if you're paranoid (see **Data** above).
+
+### Prebuilt image
+
+```
+docker pull ghcr.io/luskan/mailsluice:0.2
+docker rm -f mailsluice
+docker run -d --name mailsluice \
+  -p 3000:3000 \
+  -v mailsluice-data:/app/data \
+  --env-file .env \
+  --restart unless-stopped \
+  ghcr.io/luskan/mailsluice:0.2
+```
+
+`:0.2` rolls forward across `0.2.x`. Pin to `:0.2.1` if you want to stay
+on a specific release.
+
+### Build from source
+
+```
+git pull
+./scripts/docker-run.sh
+```
+
+Without `--clear`, `./data/` is preserved -- the helper rebuilds the
+image and restarts the container against the same SQLite file. Admin
+and history stay intact.
+
+### Local (no Docker)
+
+```
+git pull
+npm install
+./scripts/run-local.sh
+```
+
+Rebuilds `dist/` and restarts. Without `--clear`, the SQLite file in
+`./data/` is kept.
+
 ## Forgot the admin password
 
 argon2id is one-way, so there's no recovery. Generate a fresh password:
