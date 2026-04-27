@@ -10,7 +10,7 @@
   <h2>Gmail OAuth client <span class="text-sm text-base-content/60 font-normal">(admin)</span></h2>
   <%- include('../admin/_gmail_oauth_panel', { csrfToken, flash: null, configured, client_id, client_secret_mask, redirect_uri, suggested_origin, suggested_redirect_uri }) %>
   <div class="divider my-8"></div>
-  <h2>Your connected mailbox</h2>
+  <h2 id="connect" class="scroll-mt-4">Your connected mailbox</h2>
 <% } %>
 
 <% if (destinations.length === 0) { %>

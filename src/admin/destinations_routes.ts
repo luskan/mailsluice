@@ -82,9 +82,9 @@ export async function registerAdminDestinationRoutes(
         req,
       });
       req.session.flash = clientSecret
-        ? 'Gmail OAuth client saved (client_secret updated).'
+        ? 'Gmail OAuth client saved. Scroll down or click Connect Gmail to authorize a mailbox.'
         : 'Gmail OAuth client saved (client_secret kept).';
-      return reply.redirect('/destinations');
+      return reply.redirect('/destinations#connect');
     },
   );
 
