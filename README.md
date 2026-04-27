@@ -31,11 +31,13 @@ docker run -d --name mailsluice \
   --restart unless-stopped \
   ghcr.io/luskan/mailsluice:0.2
 
-docker logs mailsluice
+# wait for the bootstrap to finish, then read the admin block
+until curl -sf http://127.0.0.1:3000/health >/dev/null; do sleep 1; done
+docker logs mailsluice 2>&1 | grep -A4 "FIRST-RUN ADMIN CREDENTIALS"
 ```
 
-The log block prints the admin username and a one-time random password --
-save them. Open `http://localhost:3000/`.
+Save the printed username and password -- they're shown once. Open
+`http://localhost:3000/`.
 
 A named volume (`mailsluice-data`) is used instead of a host bind mount so
 the image works the same on vanilla, snap, and rootless Docker. To back it
