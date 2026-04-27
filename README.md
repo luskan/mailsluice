@@ -14,19 +14,47 @@ Node 22, TypeScript, Fastify, EJS, better-sqlite3, ImapFlow,
 
 ## Run
 
-### Docker (host port 3000)
+### Docker (prebuilt image, no clone)
+
+Easiest path. Pull from GitHub Container Registry:
 
 ```
+mkdir mailsluice && cd mailsluice && mkdir -p data
+cat > .env <<EOF
+APP_ENCRYPTION_KEY=$(openssl rand -base64 32)
+APP_SESSION_SECRET=$(openssl rand -hex 32)
+EOF
+docker run -d --name mailsluice \
+  -p 3000:3000 \
+  -v "$(pwd)/data:/app/data" \
+  --env-file .env \
+  --restart unless-stopped \
+  ghcr.io/marcinj/mailsluice:latest
+
+docker logs mailsluice
+```
+
+The log block prints the admin username and a one-time random password --
+save them. Open `http://localhost:3000/`.
+
+Available tags: `latest`, semver (`0.2.0`, `0.2`), `sha-<short>`. The major-only
+tag (`0`, `1`, ...) is suppressed until v1.
+
+The package is private on first publish. Open it under your GitHub profile's
+**Packages**, set visibility to public, and link it to the repo so anonymous
+`docker pull` works.
+
+### Docker (build from source)
+
+```
+git clone https://github.com/MarcinJ/mailsluice && cd mailsluice
 ./scripts/create_env.sh
 ./scripts/docker-run.sh --clear
 ```
 
-Open `http://localhost:3000/`. The first run prints the admin username and a
-random password -- save them.
-
-`APP_PORT` in `.env` only changes the in-container port. The compose file
-publishes `3000:3000`; if you want a different host port, edit
-`docker-compose.yml`.
+Same admin-credential block as above. `APP_PORT` in `.env` only changes the
+in-container port -- the compose file publishes `3000:3000`. Edit
+`docker-compose.yml` for a different host port.
 
 ### Docker behind Traefik
 
@@ -36,11 +64,13 @@ publishes `3000:3000`; if you want a different host port, edit
 ```
 
 `create_env.sh` writes `MAILSLUICE_DOMAIN` and `APP_PUBLIC_BASE_URL` into
-`.env` for you. Pass `--http-auth` to add a random Basic Auth gate in front.
+`.env`. Pass `--http-auth` for a random Basic Auth gate in front.
 
 Needs Docker Compose 2.24+ and an existing external network named `web` (or
 override `TRAEFIK_NETWORK`). Other overrides: `TRAEFIK_ENTRYPOINT`,
-`TRAEFIK_CERTRESOLVER`, `MAILSLUICE_ROUTER_NAME`.
+`TRAEFIK_CERTRESOLVER`, `MAILSLUICE_ROUTER_NAME`. The overlay builds from
+source; for a prebuilt image behind Traefik, write your own compose using
+`ghcr.io/marcinj/mailsluice:latest`.
 
 ### Local (no Docker)
 
@@ -115,6 +145,17 @@ npm test             # node:test via tsx
 npm run typecheck
 npm run build
 ```
+
+## Release
+
+```
+./scripts/release.sh patch    # or minor / major
+```
+
+Bumps `package.json`, commits, tags `v<x.y.z>`, and pushes. The GHCR
+workflow picks up the tag and publishes a multi-arch image. The new
+version shows in the app footer because `src/version.ts` reads
+`package.json` at startup.
 
 ## Security notes
 
