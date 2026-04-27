@@ -101,7 +101,7 @@ export async function buildApp(cfg: Config, db: Db): Promise<FastifyInstance> {
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
-      secure: resolveSecure(cfg.APP_COOKIE_SECURE, cfg.NODE_ENV),
+      secure: resolveSecure(cfg.APP_COOKIE_SECURE),
       maxAge: 1000 * 60 * 60 * 24 * 7,
     },
     saveUninitialized: false,
@@ -189,10 +189,14 @@ function parseTrustProxy(raw: string): boolean | string | number {
   return v;
 }
 
-function resolveSecure(mode: 'auto' | 'true' | 'false', nodeEnv: string): boolean {
+function resolveSecure(mode: 'auto' | 'true' | 'false'): boolean | 'auto' {
   if (mode === 'true') return true;
   if (mode === 'false') return false;
-  return nodeEnv === 'production';
+  // Let @fastify/session decide per request: Secure when req.protocol is
+  // https (which honours X-Forwarded-Proto if APP_TRUST_PROXY is set).
+  // Plain-HTTP localhost gets a non-Secure cookie, so the session and CSRF
+  // actually work; HTTPS deployments still get Secure.
+  return 'auto';
 }
 
 function loadUser(db: Db, id: number): { id: number; username: string; isAdmin: boolean } {
