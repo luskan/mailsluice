@@ -93,6 +93,16 @@ Data Access scopes, create an OAuth Web Client. The redirect URI to paste
 into Google is shown right on the form. `client_id` and `client_secret`
 go into SQLite encrypted, not into `.env`.
 
+On the **Audience** page, click **Publish App**. Refresh tokens issued
+while the consent screen is in **Testing** mode expire after 7 days, so
+Mailsluice will silently stop importing exactly one week after Connect
+Gmail and you'll have to disconnect / reconnect every week. Publishing
+removes that fuse. You do not need Google's verification process if you
+only authorize Google accounts you own -- per Google's policy, an app
+with fewer than 100 users does not need verification (see
+<https://support.google.com/cloud/answer/13464323>). You'll just click
+through an "unverified app" warning on first consent.
+
 Then **Destination** -> Connect Gmail, **Sources** -> Add source.
 
 ## Configuration

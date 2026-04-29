@@ -22,8 +22,10 @@
         <a class="link link-primary" href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Auth Platform -&gt; Audience</a>:
         <ul class="list-disc ml-5 mt-1">
           <li>User type: <strong>External</strong>.</li>
-          <li>Publishing status: keep it in <strong>Testing</strong> (caps you at 100 test users without Google's review -- plenty for self-hosting).</li>
-          <li>Test users: add every Google account that will connect through this Mailsluice deployment (yourself at minimum). Anyone not on this list will get an <em>"access blocked"</em> error when they try to connect.</li>
+          <li>
+            Publishing status: click <strong>Publish App</strong> and confirm. Refresh tokens issued while the app is in <strong>Testing</strong> mode expire after 7 days, which makes Mailsluice silently stop importing one week after you connect Gmail (you would have to disconnect and reconnect every week). Publishing removes that fuse. You do <em>not</em> need Google's verification process if you only authorize accounts you own -- per <a class="link link-primary" href="https://support.google.com/cloud/answer/13464323" target="_blank" rel="noopener">Google's policy</a>, apps with fewer than 100 users do not need verification. You'll just click through an <em>"unverified app"</em> interstitial on first consent.
+          </li>
+          <li>Test users (only relevant if you keep it in Testing despite the above): add every Google account that will connect through this Mailsluice deployment (yourself at minimum). Anyone not on this list will get an <em>"access blocked"</em> error when they try to connect.</li>
         </ul>
       </li>
       <li>
