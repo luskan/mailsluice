@@ -229,7 +229,12 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
             });
             client.setCredentials(creds);
             if (creds.refresh_token) {
-              await client.revokeToken(creds.refresh_token).catch(() => {});
+              const revoke = client.revokeToken(creds.refresh_token).then(
+                () => undefined,
+                () => undefined,
+              );
+              const timeout = new Promise<void>((resolve) => setTimeout(resolve, 8000).unref());
+              await Promise.race([revoke, timeout]);
             }
           } catch {
             // Non-fatal: we still remove the local record.

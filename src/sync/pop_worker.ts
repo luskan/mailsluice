@@ -90,9 +90,20 @@ export class PopSourceWorker implements SourceWorker {
 
   private async sleep(ms: number): Promise<void> {
     await new Promise<void>((resolve) => {
-      this.waitTimer = this.deps.clock.setTimeout(resolve, ms);
+      const t = this.deps.clock.setTimeout(() => {
+        this.waitTimer = null;
+        resolve();
+      }, ms);
+      // stop() calls clear() to abort the wait; make sure the awaited
+      // promise resolves too, otherwise stop() hangs on the loop.
+      this.waitTimer = {
+        clear: () => {
+          t.clear();
+          this.waitTimer = null;
+          resolve();
+        },
+      };
     });
-    this.waitTimer = null;
   }
 
   private async pollOnce(): Promise<void> {
@@ -198,7 +209,12 @@ export class PopSourceWorker implements SourceWorker {
       this.lastSyncAt = new Date().toISOString();
     } finally {
       try {
-        await client.QUIT();
+        await Promise.race([
+          client.QUIT(),
+          new Promise<void>((resolve) => {
+            setTimeout(resolve, 3000).unref();
+          }),
+        ]);
       } catch {
         // Best effort.
       }

@@ -1,5 +1,20 @@
 import { ImapFlow } from 'imapflow';
 
+async function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | undefined> {
+  let timer: NodeJS.Timeout | undefined;
+  try {
+    return await Promise.race([
+      p,
+      new Promise<undefined>((resolve) => {
+        timer = setTimeout(() => resolve(undefined), ms);
+        timer.unref();
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export type TestConnectionArgs = {
   type: 'imap' | 'pop';
   host: string;
@@ -80,7 +95,7 @@ async function testImap(a: TestConnectionArgs): Promise<TestConnectionResult> {
     return { ok: false, error: friendlyError(a, raw) };
   } finally {
     try {
-      await client.logout();
+      await withTimeout(client.logout(), 3000);
     } catch {
       // best effort
     }
@@ -106,7 +121,7 @@ async function testPop(a: TestConnectionArgs): Promise<TestConnectionResult> {
     return { ok: false, error: friendlyError(a, raw) };
   } finally {
     try {
-      await client.QUIT();
+      await withTimeout(client.QUIT(), 3000);
     } catch {
       // best effort
     }
@@ -177,7 +192,7 @@ export async function listImapFolders(a: ListFoldersArgs): Promise<ListFoldersRe
     return { ok: false, error: friendlyError({ ...a, type: 'imap' }, raw) };
   } finally {
     try {
-      await client.logout();
+      await withTimeout(client.logout(), 3000);
     } catch {
       // best effort
     }
