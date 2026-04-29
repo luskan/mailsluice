@@ -1,6 +1,6 @@
 {
   "name": "mailsluice",
-  "version": "0.2.6",
+  "version": "0.2.7",
   "private": true,
   "license": "MIT",
   "description": "Self-hosted service that forwards mail from IMAP/POP sources into a primary mailbox (Gmail in v1).",
