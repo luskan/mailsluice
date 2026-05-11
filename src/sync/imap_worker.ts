@@ -9,6 +9,7 @@ import {
   recordActivity,
   recordLastError,
   recordLastSuccess,
+  settleWithin,
 } from './worker.ts';
 import { importOne, type ImportContext, MAX_MESSAGE_BYTES } from './import_flow.ts';
 
@@ -96,18 +97,20 @@ export class ImapSourceWorker implements SourceWorker {
       this.retryTimer = null;
     }
     if (this.client) {
-      try {
-        await this.client.logout();
-      } catch {
-        // Best effort on shutdown.
+      const c = this.client;
+      const loggedOut = await settleWithin(() => c.logout(), 3000);
+      if (!loggedOut) {
+        try { c.close(); } catch { /* best-effort */ }
       }
       this.client = null;
     }
     if (this.loopPromise) {
-      try {
-        await this.loopPromise;
-      } catch {
-        /* swallow */
+      const lp = this.loopPromise;
+      const loopDone = await settleWithin(() => lp, 3000);
+      if (!loopDone) {
+        this.deps.log('warn', 'imap worker shutdown abandoned; loop still running', {
+          sourceId: this.sourceId,
+        });
       }
     }
   }
@@ -121,10 +124,10 @@ export class ImapSourceWorker implements SourceWorker {
         // Cleanup any partially-connected client so FDs/sockets don't leak
         // across reconnect cycles.
         if (this.client) {
-          try {
-            await this.client.logout();
-          } catch {
-            /* best-effort */
+          const c = this.client;
+          const loggedOut = await settleWithin(() => c.logout(), 3000);
+          if (!loggedOut) {
+            try { c.close(); } catch { /* best-effort */ }
           }
           this.client = null;
         }

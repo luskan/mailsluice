@@ -67,3 +67,27 @@ export function recordActivity(db: Db, sourceId: number): void {
 export function newBackoff(): Backoff {
   return new Backoff({ baseMs: 1_000, maxMs: 300_000 });
 }
+
+// Returns true if start() settled (resolve or reject), false if the timer won.
+// Rejection is swallowed, so don't use this when the caller needs the error.
+export async function settleWithin(
+  start: () => Promise<unknown>,
+  ms: number,
+): Promise<boolean> {
+  let settled = false;
+  const tracked = Promise.resolve().then(start).then(
+    () => {
+      settled = true;
+    },
+    () => {
+      settled = true;
+    },
+  );
+  await Promise.race([
+    tracked,
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, ms).unref();
+    }),
+  ]);
+  return settled;
+}

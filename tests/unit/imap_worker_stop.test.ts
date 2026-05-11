@@ -46,7 +46,7 @@ function prepDb() {
   return { db, sourceId: s.id };
 }
 
-test('stop() unblocks from backoff sleep without hanging', async () => {
+function makeWorker(opts: { log?: (level: string, msg: string) => void } = {}) {
   const { db, sourceId } = prepDb();
   const { clock } = makeClock();
   const worker = new ImapSourceWorker(
@@ -56,7 +56,7 @@ test('stop() unblocks from backoff sleep without hanging', async () => {
       destinationTag: 'Ext',
       sourceId,
       clock,
-      log: () => {},
+      log: opts.log ?? (() => {}),
       tagCache: new Map(),
     },
     {
@@ -68,6 +68,11 @@ test('stop() unblocks from backoff sleep without hanging', async () => {
       postImportAction: 'none',
     },
   );
+  return { worker, db, sourceId };
+}
+
+test('stop() unblocks from backoff sleep without hanging', async () => {
+  const { worker, db } = makeWorker();
   await worker.start();
   // Give the loop a moment to hit the connect failure and enter sleep.
   await new Promise((r) => setTimeout(r, 50));
@@ -79,5 +84,43 @@ test('stop() unblocks from backoff sleep without hanging', async () => {
   ]);
   const outcome = await withTimeout;
   assert.equal(outcome, 'stopped');
+  db.close();
+});
+
+test('stop() force-closes the client when logout hangs', async () => {
+  const { worker, db } = makeWorker();
+  let closeCalled = false;
+  const fake = {
+    logout: () => new Promise<void>(() => {}),
+    close: () => { closeCalled = true; },
+  };
+  (worker as unknown as { client: unknown }).client = fake;
+
+  const t0 = Date.now();
+  await worker.stop();
+  const elapsed = Date.now() - t0;
+
+  assert.equal(closeCalled, true, 'expected client.close() to be called on logout timeout');
+  assert.ok(elapsed >= 2500 && elapsed < 5000, `elapsed=${elapsed}`);
+  db.close();
+});
+
+test('stop() warns when the loop refuses to exit', async () => {
+  const logs: Array<{ level: string; msg: string }> = [];
+  const { worker, db } = makeWorker({
+    log: (level, msg) => { logs.push({ level, msg }); },
+  });
+  (worker as unknown as { loopPromise: Promise<void> }).loopPromise =
+    new Promise<void>(() => {});
+
+  const t0 = Date.now();
+  await worker.stop();
+  const elapsed = Date.now() - t0;
+
+  assert.ok(elapsed >= 2500 && elapsed < 5000, `elapsed=${elapsed}`);
+  assert.ok(
+    logs.some((l) => l.level === 'warn' && l.msg.includes('abandoned')),
+    `expected abandoned warn, got: ${JSON.stringify(logs)}`,
+  );
   db.close();
 });
