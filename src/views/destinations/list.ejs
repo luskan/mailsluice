@@ -40,13 +40,19 @@
             <% if (!d.enabled) { %> &middot; <span class="text-error">disabled</span><% } %>
           </div>
         </div>
-        <form method="POST" action="/destinations/<%= d.id %>/disconnect">
-          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
-          <button type="submit" class="btn btn-error btn-sm">Disconnect</button>
-        </form>
+        <div class="flex gap-2">
+          <form method="POST" action="/destinations/<%= d.id %>/reconnect">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="btn btn-primary btn-sm">Reconnect</button>
+          </form>
+          <form method="POST" action="/destinations/<%= d.id %>/disconnect">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button type="submit" class="btn btn-error btn-sm">Disconnect</button>
+          </form>
+        </div>
       </div>
       <p class="text-sm text-base-content/60 mt-4">
-        Disconnecting revokes this Mailsluice's OAuth token with Google and removes any sources attached to this destination.
+        Reconnect re-authorizes Gmail without touching your sources; use it when the OAuth token expires (Testing-mode apps expire after 7 days). Disconnect revokes the token and removes any sources attached to this destination.
       </p>
     </div>
   </div>

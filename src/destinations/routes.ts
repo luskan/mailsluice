@@ -53,6 +53,20 @@ function loadUser(
   return { id: row.id, username: row.username, isAdmin: row.is_admin === 1 };
 }
 
+async function bestEffortRevoke(
+  clientId: string,
+  clientSecret: string,
+  refreshToken: string,
+): Promise<void> {
+  const client = new OAuth2Client({ clientId, clientSecret });
+  const revoke = client.revokeToken(refreshToken).then(
+    () => undefined,
+    () => undefined,
+  );
+  const timer = new Promise<void>((resolve) => setTimeout(resolve, 5000).unref());
+  await Promise.race([revoke, timer]);
+}
+
 export async function registerDestinationRoutes(app: FastifyInstance): Promise<void> {
   app.get('/destinations', { preHandler: requireLogin }, async (req, reply) => {
     const token = await reply.generateCsrf();
@@ -115,6 +129,7 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
       const state = randomBytes(24).toString('base64url');
       req.session.oauthState = state;
       req.session.oauthRedirect = redirectUri;
+      delete req.session.oauthReconnectFor;
 
       const starter = factory.createAuthStarter({ adminConfig: admin, redirectUri });
       return reply.redirect(starter.authUrl(state));
@@ -128,8 +143,10 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
       const user = loadUser(app, req.session.userId!);
       const expected = req.session.oauthState;
       const redirectUri = req.session.oauthRedirect;
+      const reconnectFor = req.session.oauthReconnectFor;
       delete req.session.oauthState;
       delete req.session.oauthRedirect;
+      delete req.session.oauthReconnectFor;
 
       if (!expected || req.query.state !== expected) {
         return reply.code(400).send({ error: 'invalid oauth state' });
@@ -159,6 +176,54 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
           state: req.query.state ?? '',
         });
         const { userCredentials, accountIdentifier } = await starter.handleCallback(params);
+
+        if (reconnectFor !== undefined) {
+          const existing = app.db
+            .prepare(
+              'SELECT id, user_id, account_identifier FROM destinations WHERE id = ?',
+            )
+            .get(reconnectFor) as
+            | { id: number; user_id: number; account_identifier: string | null }
+            | undefined;
+          const newRefreshToken = (userCredentials as { refresh_token?: unknown }).refresh_token;
+          if (!existing || existing.user_id !== user.id) {
+            if (typeof newRefreshToken === 'string' && newRefreshToken.length > 0) {
+              await bestEffortRevoke(admin.client_id, admin.client_secret, newRefreshToken);
+            }
+            req.session.flash = 'Reconnect target not found.';
+            return reply.redirect('/destinations');
+          }
+          if (existing.account_identifier && existing.account_identifier !== accountIdentifier) {
+            if (typeof newRefreshToken === 'string' && newRefreshToken.length > 0) {
+              await bestEffortRevoke(admin.client_id, admin.client_secret, newRefreshToken);
+            }
+            req.session.flash = `Reconnect cancelled: you signed in as ${accountIdentifier}, but this destination is ${existing.account_identifier}. Use Disconnect to switch accounts.`;
+            return reply.redirect('/destinations');
+          }
+          const enc = encryptJson(
+            userCredentials,
+            app.appConfig.encryptionKeys,
+            `destinations.credentials:${existing.id}`,
+          );
+          app.db
+            .prepare(
+              'UPDATE destinations SET credentials_encrypted = ?, account_identifier = ? WHERE id = ?',
+            )
+            .run(enc, accountIdentifier, existing.id);
+
+          audit(app.db, {
+            action: 'destination.reconnected',
+            targetType: 'destination',
+            targetId: existing.id,
+            details: { type: 'gmail', account: accountIdentifier },
+            req,
+          });
+
+          await app.syncManager?.reloadDestinationWorkers(existing.id).catch(() => undefined);
+
+          req.session.flash = `Reconnected Gmail: ${accountIdentifier}`;
+          return reply.redirect('/destinations');
+        }
 
         const tx = app.db.transaction((): number => {
           const res = app.db
@@ -257,6 +322,49 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
       });
       req.session.flash = 'Destination disconnected. Any sources attached to it were also removed.';
       return reply.redirect('/destinations');
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: { _csrf?: string } }>(
+    '/destinations/:id/reconnect',
+    { preHandler: [requireLogin, app.csrfProtection] },
+    async (req, reply) => {
+      const user = loadUser(app, req.session.userId!);
+      const id = Number.parseInt(req.params.id, 10);
+      if (!Number.isInteger(id)) return reply.code(400).send({ error: 'bad id' });
+
+      const row = app.db
+        .prepare('SELECT id, user_id, type FROM destinations WHERE id = ?')
+        .get(id) as { id: number; user_id: number; type: string } | undefined;
+      if (!row || row.user_id !== user.id) {
+        return reply.code(404).send({ error: 'not found' });
+      }
+      if (row.type !== 'gmail') {
+        req.session.flash = 'Reconnect is only supported for Gmail destinations.';
+        return reply.redirect('/destinations');
+      }
+
+      const admin = getGmailOAuthClient(app.db, app.appConfig.encryptionKeys);
+      if (!admin) {
+        req.session.flash = 'Gmail OAuth client is not configured.';
+        return reply.redirect('/destinations');
+      }
+
+      const factory = getDestinationFactory('gmail');
+      if (!factory) return reply.code(500).send({ error: 'gmail factory not registered' });
+
+      const redirectUri = computeRedirectUri(
+        publicOrigin(req, app.appConfig),
+        admin.redirect_uri,
+        'gmail',
+      );
+      const state = randomBytes(24).toString('base64url');
+      req.session.oauthState = state;
+      req.session.oauthRedirect = redirectUri;
+      req.session.oauthReconnectFor = id;
+
+      const starter = factory.createAuthStarter({ adminConfig: admin, redirectUri });
+      return reply.redirect(starter.authUrl(state));
     },
   );
 }

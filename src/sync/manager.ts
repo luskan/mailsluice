@@ -144,6 +144,19 @@ export class SyncManager {
     await Promise.all(rows.map((r) => this.stopOne(r.id)));
   }
 
+  // Stop drops the cached Destination once refcount hits 0, so the restart
+  // reads fresh credentials from the database.
+  async reloadDestinationWorkers(destinationId: number): Promise<void> {
+    if (this.stopping) return;
+    await this.stopDestinationWorkers(destinationId);
+    const rows = this.db
+      .prepare('SELECT id FROM sources WHERE destination_id = ? AND enabled = 1')
+      .all(destinationId) as { id: number }[];
+    for (const r of rows) {
+      await this.reloadSource(r.id);
+    }
+  }
+
   async stopUserWorkers(userId: number): Promise<void> {
     const rows = this.db
       .prepare('SELECT id FROM sources WHERE user_id = ?')

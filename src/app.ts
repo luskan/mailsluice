@@ -53,6 +53,7 @@ declare module 'fastify' {
     flash?: string;
     oauthState?: string;
     oauthRedirect?: string;
+    oauthReconnectFor?: number;
   }
 }
 
