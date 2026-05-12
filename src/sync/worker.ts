@@ -86,7 +86,7 @@ export async function settleWithin(
   await Promise.race([
     tracked,
     new Promise<void>((resolve) => {
-      setTimeout(resolve, ms).unref();
+      setTimeout(resolve, ms);
     }),
   ]);
   return settled;
