@@ -207,7 +207,7 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
           );
           app.db
             .prepare(
-              'UPDATE destinations SET credentials_encrypted = ?, account_identifier = ? WHERE id = ?',
+              "UPDATE destinations SET credentials_encrypted = ?, account_identifier = ?, created_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?",
             )
             .run(enc, accountIdentifier, existing.id);
 

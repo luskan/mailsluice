@@ -284,9 +284,12 @@ test('Reconnect with matching account updates credentials and keeps sources', as
         "INSERT INTO sources (user_id, destination_id, name, type, host, port, username, password_encrypted, destination_tag, poll_interval_seconds) VALUES (?, ?, 's', 'imap', 'h', 993, 'u', x'00', 'Ext', 300)",
       )
       .run(uid, destId);
+    ctx.db
+      .prepare("UPDATE destinations SET created_at = '2020-01-01T00:00:00.000Z' WHERE id = ?")
+      .run(destId);
     const before = ctx.db
-      .prepare('SELECT credentials_encrypted FROM destinations WHERE id = ?')
-      .get(destId) as { credentials_encrypted: Buffer };
+      .prepare('SELECT credentials_encrypted, created_at FROM destinations WHERE id = ?')
+      .get(destId) as { credentials_encrypted: Buffer; created_at: string };
 
     const reloads: number[] = [];
     (ctx.app as unknown as { syncManager: unknown }).syncManager = {
@@ -319,9 +322,11 @@ test('Reconnect with matching account updates credentials and keeps sources', as
       assert.equal(cb.headers.location, '/destinations');
 
       const after = ctx.db
-        .prepare('SELECT credentials_encrypted FROM destinations WHERE id = ?')
-        .get(destId) as { credentials_encrypted: Buffer };
+        .prepare('SELECT credentials_encrypted, created_at FROM destinations WHERE id = ?')
+        .get(destId) as { credentials_encrypted: Buffer; created_at: string };
       assert.notDeepEqual(after.credentials_encrypted, before.credentials_encrypted);
+      assert.notEqual(after.created_at, before.created_at, 'created_at should be bumped on reconnect');
+      assert.ok(after.created_at > before.created_at);
 
       const stillThere = ctx.db
         .prepare('SELECT id FROM sources WHERE destination_id = ?')
