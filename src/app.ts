@@ -83,7 +83,7 @@ export async function buildApp(cfg: Config, db: Db): Promise<FastifyInstance> {
         scriptSrc: ["'self'"],
         styleSrc: ["'self'"],
         imgSrc: ["'self'", 'data:'],
-        formAction: ["'self'"],
+        formAction: ["'self'", 'https://accounts.google.com'],
         frameAncestors: ["'none'"],
         baseUri: ["'self'"],
         objectSrc: ["'none'"],

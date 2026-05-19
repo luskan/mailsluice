@@ -12,6 +12,9 @@ test('helmet sets CSP and related headers on /login', async () => {
     assert.match(csp, /default-src 'self'/);
     assert.match(csp, /frame-ancestors 'none'/);
     assert.match(csp, /object-src 'none'/);
+    // Reconnect posts a form that redirects to Google's OAuth consent; the
+    // browser blocks that hop unless accounts.google.com is in form-action.
+    assert.match(csp, /form-action 'self' https:\/\/accounts\.google\.com/);
     assert.equal(res.headers['x-content-type-options'], 'nosniff');
     assert.match(
       res.headers['referrer-policy'] as string,
