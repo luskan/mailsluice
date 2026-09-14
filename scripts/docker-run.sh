@@ -78,6 +78,11 @@ if [ "$TRAEFIK" = "1" ]; then
     echo "docker-compose.traefik.yml failed validation (see error above)." >&2
     exit 1
   fi
+  PROXY_TRUST=$("${DC[@]}" config --environment | sed -n 's/^APP_TRUST_PROXY=//p')
+  if [[ "$PROXY_TRUST" =~ ^[[:space:]]*[0-9]+[[:space:]]*$ ]] || [ "$PROXY_TRUST" = true ] || [ "$PROXY_TRUST" = false ]; then
+    echo "--traefik requires APP_TRUST_PROXY to be a trusted proxy IP/CIDR, not a hop count or boolean." >&2
+    exit 1
+  fi
 fi
 CONTAINER=mailsluice
 
@@ -168,7 +173,7 @@ if [ "$TRAEFIK" != "1" ] \
 fi
 
 if [ "$NO_BUILD" != "1" ]; then
-  "${DC[@]}" build
+  "${DC[@]}" build --pull
 fi
 
 # Pass the host user's UID/GID into compose so the container runs as the

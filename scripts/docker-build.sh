@@ -23,5 +23,5 @@ if ! pick_compose; then
   exit 1
 fi
 
-"${DC[@]}" build "$@"
+"${DC[@]}" build --pull "$@"
 echo "Built mailsluice:local"

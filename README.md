@@ -63,11 +63,17 @@ in-container port -- the compose file publishes `3000:3000`. Edit
 
 ```
 ./scripts/create_env.sh mail.example.com
+# Set APP_TRUST_PROXY in .env to Traefik's IP on the shared Docker network.
 ./scripts/docker-run.sh --traefik --detach
 ```
 
 `create_env.sh` writes `MAILSLUICE_DOMAIN` and `APP_PUBLIC_BASE_URL` into
 `.env`. Pass `--http-auth` for a random Basic Auth gate in front.
+
+`APP_TRUST_PROXY` must contain Traefik's trusted IP or CIDR. Use a network CIDR
+only if every container on it is trusted. Numeric hop counts such as `1` are
+no longer supported; replace them when upgrading from 0.2.10. The helper
+checks this before stopping the old Traefik deployment.
 
 Needs Docker Compose 2.24+ and an existing external network named `web` (or
 override `TRAEFIK_NETWORK`). Other overrides: `TRAEFIK_ENTRYPOINT`,
@@ -179,7 +185,8 @@ on a specific release.
 ./scripts/pull.sh --rebuild
 ```
 
-The helper pulls the current branch with `--ff-only`, builds the image before
+The helper pulls the current branch with `--ff-only`, checks for a newer Docker
+base image with `build --pull`, builds the image before
 stopping the old container, then recreates it in the background. `.env`,
 `./data/`, admin login, and history are preserved. Commit or stash local changes
 first; add `--rebase` to rebase local commits if the branch has diverged.

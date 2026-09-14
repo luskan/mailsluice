@@ -89,6 +89,7 @@ fi
 printf '\n%s.env created (chmod 600).%s\n' "$BOLD" "$RESET"
 if [ -n "$DOMAIN" ]; then
   printf '  Domain:  %s\n' "$DOMAIN"
+  printf '  Set APP_TRUST_PROXY in .env to the trusted Traefik IP/CIDR before starting.\n'
 fi
 if [ -n "$BASIC_AUTH_PASS" ]; then
   printf '  Basic Auth: gate / %s\n' "$BASIC_AUTH_PASS"

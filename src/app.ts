@@ -219,12 +219,14 @@ function registerAckGate(app: FastifyInstance): void {
   });
 }
 
-function parseTrustProxy(raw: string): boolean | string | number {
+function parseTrustProxy(raw: string): boolean | string {
   const v = raw.trim();
   if (v === '' || v.toLowerCase() === 'false' || v === '0') return false;
   if (v.toLowerCase() === 'true') return true;
   const n = Number(v);
-  if (Number.isInteger(n) && n > 0) return n;
+  if (Number.isFinite(n)) {
+    throw new Error('APP_TRUST_PROXY no longer accepts a hop count. Set the trusted proxy IP or CIDR instead (for example 127.0.0.1 for a local proxy).');
+  }
   return v;
 }
 

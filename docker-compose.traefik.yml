@@ -6,6 +6,7 @@
 #
 # Required env vars (in .env):
 #   MAILSLUICE_DOMAIN        -- e.g. mailsluice.example.com
+#   APP_TRUST_PROXY         -- trusted Traefik IP/CIDR on the shared network
 #
 # Optional env vars (defaults shown):
 #   TRAEFIK_NETWORK=web                 -- external network Traefik listens on
@@ -20,12 +21,10 @@ services:
     networks:
       - default
       - traefik
-    # Behind Traefik (TLS-terminating reverse proxy): trust one hop so
-    # req.protocol reflects https, and issue Secure cookies. Hard-coded here
-    # on purpose -- .env values do not apply in traefik mode since the base
-    # env_file loses to this environment block, which is the intent.
+    # Trust the configured Traefik address so req.protocol reflects https.
+    # Fastify no longer supports numeric hop-count trust.
     environment:
-      APP_TRUST_PROXY: "1"
+      APP_TRUST_PROXY: "${APP_TRUST_PROXY:?set APP_TRUST_PROXY to the trusted Traefik IP or CIDR in .env}"
       APP_COOKIE_SECURE: "true"
       # Pin the internal port so the traefik label below cannot desync from .env.
       APP_PORT: "3000"

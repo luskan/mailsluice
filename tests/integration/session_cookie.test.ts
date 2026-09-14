@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { closeTestApp, makeTestApp } from '../helpers/app.ts';
+import { buildApp } from '../../src/app.ts';
 
 function setCookieHeaders(
   headers: Record<string, string | string[] | undefined>,
@@ -61,4 +62,26 @@ test('session cookie gets Secure flag in production (behind HTTPS reverse proxy)
   } finally {
     await closeTestApp(ctx);
   }
+});
+
+test('an untrusted peer cannot spoof HTTPS through forwarded headers', async () => {
+  const ctx = await makeTestApp({ APP_TRUST_PROXY: '127.0.0.1' });
+  try {
+    const res = await ctx.app.inject({
+      url: '/login', remoteAddress: '203.0.113.4',
+      headers: { 'x-forwarded-proto': 'https', 'x-forwarded-for': '127.0.0.1' },
+    });
+    const cookie = setCookieHeaders(res.headers).find((c) => c.startsWith('mailsluice.sid='));
+    assert.ok(cookie);
+    assert.doesNotMatch(cookie, /Secure/i);
+  } finally { await closeTestApp(ctx); }
+});
+
+test('legacy proxy hop counts fail with migration guidance', async () => {
+  const ctx = await makeTestApp();
+  try {
+    for (const value of ['1', '2', ' 1 ']) {
+      await assert.rejects(buildApp({ ...ctx.cfg, APP_TRUST_PROXY: value }, ctx.db), /APP_TRUST_PROXY.*trusted proxy IP or CIDR/);
+    }
+  } finally { await closeTestApp(ctx); }
 });
