@@ -176,13 +176,17 @@ on a specific release.
 ### Build from source
 
 ```
-git pull
-./scripts/docker-run.sh
+./scripts/pull.sh --rebuild
 ```
 
-Without `--clear`, `./data/` is preserved -- the helper rebuilds the
-image and restarts the container against the same SQLite file. Admin
-and history stay intact.
+The helper pulls the current branch with `--ff-only`, builds the image before
+stopping the old container, then recreates it in the background. `.env`,
+`./data/`, admin login, and history are preserved. Commit or stash local changes
+first; add `--rebase` to rebase local commits if the branch has diverged.
+
+Traefik mode is detected from the existing container; pass `--traefik` explicitly
+if that container has been removed. Run `./scripts/pull.sh` without `--rebuild`
+to update only the checkout. This helper is for source/Compose installations.
 
 ### Local (no Docker)
 
