@@ -20,7 +20,7 @@ const schema = z.object({
   APP_COOKIE_SECURE: z.enum(['auto', 'true', 'false']).default('auto'),
   APP_EVENT_LOG_MAX_ROWS: z.coerce.number().int().min(100).max(1_000_000).default(10_000),
   // Optional HTTP Basic Auth wrapper, user:password. When set, every request
-  // except /health is 401'd until the browser sends the matching credential.
+  // except /health and GET/HEAD /oauth-info and /privacy requires credentials.
   APP_HTTP_AUTH: z.string().optional(),
   // Optional fixed public base URL. When set, OAuth redirect_uri and similar
   // absolute URLs are derived from this instead of request headers (which an

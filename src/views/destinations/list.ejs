@@ -8,9 +8,13 @@
 
 <% if (user.isAdmin) { %>
   <h2>Gmail OAuth client <span class="text-sm text-base-content/60 font-normal">(admin)</span></h2>
-  <%- include('../admin/_gmail_oauth_panel', { csrfToken, flash: null, configured, client_id, client_secret_mask, redirect_uri, suggested_origin, suggested_redirect_uri }) %>
+  <%- include('../admin/_gmail_oauth_panel', { csrfToken, flash: null, configured, client_id, client_secret_mask, redirect_uri, oauth_setup, suggested_redirect_uri }) %>
   <div class="divider my-8"></div>
   <h2 id="connect" class="scroll-mt-4">Your connected mailbox</h2>
+<% } %>
+
+<% if (adminConfigured) { %>
+  <%- include('_oauth_warning') %>
 <% } %>
 
 <% if (destinations.length === 0) { %>
@@ -52,7 +56,7 @@
         </div>
       </div>
       <p class="text-sm text-base-content/60 mt-4">
-        Reconnect re-authorizes Gmail without touching your sources; use it when the OAuth token expires (Testing-mode apps expire after 7 days). Disconnect revokes the token and removes any sources attached to this destination.
+        Reconnect re-authorizes Gmail without touching your sources or import history. If connected while Testing, first publish the project, then Reconnect once. Disconnect attempts to revoke the token and removes attached sources and their import history.
       </p>
     </div>
   </div>

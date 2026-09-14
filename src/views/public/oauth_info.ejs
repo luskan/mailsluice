@@ -1,0 +1,7 @@
+<%- include('_header', { title: 'Application information', style }) %>
+<h1>Mailsluice</h1>
+<p>Mailsluice is a self-hosted IMAP/POP → Gmail importer. It imports messages from mail accounts configured by its users into their Gmail mailboxes.</p>
+<h2>Why Google authorization is requested</h2>
+<p>Google authorization lets this installation import mail into the user's Gmail account, apply labels to imported messages, and identify the connected mailbox. Gmail access starts only after the user grants OAuth permission.</p>
+<p>The installation runs on infrastructure managed by its operator. Read the <a href="/privacy">privacy and data-use information</a> for details about processing and storage.</p>
+<%- include('_footer') %>

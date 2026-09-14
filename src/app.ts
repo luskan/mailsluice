@@ -36,6 +36,7 @@ import {
 } from './sources/test_connection.ts';
 import { relativeTime } from './ui/time.ts';
 import { APP_VERSION } from './version.ts';
+import { isPublicInfoRequest, registerPublicInfoRoutes } from './ui/public_info.ts';
 
 import type { SyncManager } from './sync/manager.ts';
 
@@ -136,6 +137,7 @@ export async function buildApp(cfg: Config, db: Db): Promise<FastifyInstance> {
   registerDestination(GmailFactory);
 
   registerAckGate(app);
+  registerPublicInfoRoutes(app);
 
   await registerAuthRoutes(app);
   await registerAccountRoutes(app);
@@ -205,7 +207,7 @@ function registerAckGate(app: FastifyInstance): void {
   app.addHook('onRequest', async (req, reply) => {
     if (!req.session?.userId) return;
     const path = req.url.split('?', 1)[0]!;
-    if (ACK_ALLOWLIST.has(path) || path.startsWith('/public/')) return;
+    if (ACK_ALLOWLIST.has(path) || path.startsWith('/public/') || isPublicInfoRequest(req.method, req.url)) return;
     const row = app.db
       .prepare('SELECT risk_acked_version FROM users WHERE id = ?')
       .get(req.session.userId) as { risk_acked_version: string | null } | undefined;

@@ -87,23 +87,37 @@ on PATH.
 
 ## Connecting Gmail
 
-Log in as admin, open **Destination**. The page walks through the Google
-Cloud side: new project, enable Gmail API, fill in Branding / Audience /
-Data Access scopes, create an OAuth Web Client. The redirect URI to paste
-into Google is shown right on the form. `client_id` and `client_secret`
-go into SQLite encrypted, not into `.env`.
+Log in as admin and open **Destination** for the detailed Google Cloud
+setup checklist and exact URLs to copy. Set `APP_PUBLIC_BASE_URL` to your
+public HTTPS address. Mailsluice provides `/oauth-info` as the application
+homepage and `/privacy` as its privacy/data-use page. Both are public even
+with `APP_HTTP_AUTH`; reverse-proxy authentication must also allow them.
+Complete Branding, including App domain and authorized domains, then the
+listed scopes and a **Web application** OAuth client. JavaScript origins
+are not required. Save the client ID and secret immediately when Google
+creates them; Mailsluice stores them encrypted in SQLite.
 
-On the **Audience** page, click **Publish App**. Refresh tokens issued
-while the consent screen is in **Testing** mode expire after 7 days, so
-Mailsluice will silently stop importing exactly one week after Connect
-Gmail and you'll have to disconnect / reconnect every week. Publishing
-removes that fuse. You do not need Google's verification process if you
-only authorize Google accounts you own -- per Google's policy, an app
-with fewer than 100 users does not need verification (see
-<https://support.google.com/cloud/answer/13464323>). You'll just click
-through an "unverified app" warning on first consent.
+**Publish before connecting Gmail:** Google Auth Platform → Audience →
+Publish App → Confirm. Manually check **External / In production**.
+In **Testing**, Gmail authorizations and refresh tokens expire after
+**7 days**. In production removes that special Testing expiration;
+tokens can still be revoked or invalidated for other reasons.
+See [Google's Audience documentation](https://support.google.com/cloud/answer/15549945).
 
-Then **Destination** -> Connect Gmail, **Sources** -> Add source.
+Google's [personal-use exception](https://support.google.com/cloud/answer/13464323)
+allows an app for your own use or a small group of personally known users
+(fewer than 100 users) to remain unverified. This is not a general exemption
+for public apps with fewer than 100 users. **Google hasn't verified this app**
+is an expected warning for this setup, including after publishing. For your
+own installation, choose Advanced and continue if Google offers that option.
+The warning does not indicate Testing mode; do not switch back to Testing
+or submit for verification solely to avoid the 7-day expiration.
+
+Then use **Connect Gmail**, followed by **Sources → Add source**.
+If Gmail was originally connected while Testing, publish first and click
+**Reconnect** once to obtain fresh authorization while keeping sources and
+import history. **Disconnect** removes attached sources and their history.
+Mailsluice cannot detect the Google project's publishing/verification status.
 
 ## Configuration
 
@@ -122,7 +136,8 @@ Optional: `APP_PORT`, `APP_HOST`, `APP_DATABASE_PATH`, `APP_TRUST_PROXY`,
 `APP_ALLOW_PRIVATE_SOURCES`.
 
 `APP_HTTP_AUTH=user:password` puts browser Basic Auth in front of every
-page except `/health`. Use a long random password and only over HTTPS.
+page except `/health` and the public GET/HEAD `/oauth-info` and `/privacy`
+pages. Use a long random password and only over HTTPS.
 
 `APP_PUBLIC_BASE_URL` is recommended whenever you run behind a reverse
 proxy. It pins the OAuth `redirect_uri` so a forged Host header can't shift

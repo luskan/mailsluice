@@ -1,0 +1,13 @@
+<%- include('_header', { title: 'Privacy and data use', style }) %>
+<h1>Privacy and data use</h1>
+<p>Mailsluice is self-hosted software. This page describes the application's data handling; the operator manages this installation, its infrastructure, and its backups.</p>
+<h2>Mail and Google access</h2>
+<p>Mailsluice accesses Gmail only after the user grants Google OAuth permission. It uses that authorization to import messages into the user's Gmail mailbox, look up and create labels, apply labels and read/unread status to imported messages, and retrieve the connected mailbox's email address.</p>
+<p>The installation reads messages, including their contents, attachments, and headers, from the IMAP/POP servers configured by its users and sends those messages to Google for import into Gmail. Depending on the source settings, it may also mark source messages as read or delete them after import.</p>
+<h2>Local storage</h2>
+<p>OAuth client credentials, access tokens, refresh tokens, and source passwords are stored encrypted in the installation's local database. The installation also stores account identifiers, source configuration, import identifiers, synchronization state, and operational and audit logs. Message contents are processed during import; the application does not maintain a local message archive.</p>
+<h2>Where data is sent</h2>
+<p>Mailsluice communicates with the configured mail servers and Google's OAuth and Gmail services. The application does not send mail or account data to a Mailsluice-operated SaaS service or backend. Hosting, logging, and backup arrangements are managed by this installation's operator.</p>
+<h2>Ending access</h2>
+<p>You can revoke this application's access in your Google Account. Mailsluice's Disconnect action attempts to revoke the Google token and removes the local destination, attached sources, and their import tracking records. Previously imported messages remain in Gmail. Operational logs and operator-managed backups may remain; contact the operator about their retention.</p>
+<%- include('_footer') %>

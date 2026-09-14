@@ -1,3 +1,4 @@
+import { formatError } from '../ui/errors.ts';
 import { ImapFlow, type FetchMessageObject } from 'imapflow';
 import { simpleParser } from 'mailparser';
 import type { Db } from '../db/index.ts';
@@ -132,7 +133,7 @@ export class ImapSourceWorker implements SourceWorker {
           this.client = null;
         }
         if (!this.running) return;
-        this.lastError = err instanceof Error ? err.message : String(err);
+        this.lastError = formatError(err);
         recordLastError(this.deps.db, this.sourceId, err);
         this.deps.log('error', 'imap worker error, backing off', {
           sourceId: this.sourceId,
@@ -179,7 +180,7 @@ export class ImapSourceWorker implements SourceWorker {
     // graceful logout() does not stamp last_error.
     client.on('error', (err) => {
       if (this.running && !this.stopping) {
-        this.lastError = err instanceof Error ? err.message : String(err);
+        this.lastError = formatError(err);
         recordLastError(this.deps.db, this.sourceId, err as Error);
       }
     });

@@ -1,5 +1,7 @@
 import { OAuth2Client, type Credentials } from 'google-auth-library';
 import { gmail, type gmail_v1 } from '@googleapis/gmail';
+import { rethrowGmailRefreshError } from './gmail_errors.ts';
+import { ActionableError, formatError } from '../ui/errors.ts';
 import type {
   AuthStarter,
   Destination,
@@ -134,7 +136,7 @@ class GmailDestination implements Destination {
       await this.refreshInFlight;
       return;
     }
-    const p = this.client.getAccessToken().then((r) => r.token);
+    const p = this.client.getAccessToken().then((r) => r.token).catch(rethrowGmailRefreshError);
     this.refreshInFlight = p;
     try {
       await p;
@@ -156,7 +158,7 @@ class GmailDestination implements Destination {
     const pending = this.pendingLabelCreates.get(key);
     if (pending) return pending;
 
-    const p = this.doEnsureTag(name).finally(() => {
+    const p = this.doEnsureTag(name).catch(rethrowGmailRefreshError).finally(() => {
       queueMicrotask(() => {
         if (this.pendingLabelCreates.get(key) === p) {
           this.pendingLabelCreates.delete(key);
@@ -185,12 +187,14 @@ class GmailDestination implements Destination {
       const created = await this.api.users.labels.create({
         userId: 'me',
         requestBody: { name, labelListVisibility: 'labelShow', messageListVisibility: 'show' },
-      });
+      }).catch(rethrowGmailRefreshError);
       const id = created.data.id;
       if (!id) throw new Error('label creation returned no id');
       this.labelCache.set(key, id);
       return id;
     } catch (err) {
+      // A refresh failure is not a label-name conflict, even with HTTP 400.
+      if (err instanceof ActionableError) throw err;
       const status = extractHttpStatus(err);
       if (status !== 409 && status !== 400) throw err;
       // Either a concurrent actor created the same label, or the name
@@ -233,7 +237,7 @@ class GmailDestination implements Destination {
       processForCalendar: false,
       requestBody: { labelIds },
       media: { mimeType: 'message/rfc822', body: Readable.from(raw) },
-    });
+    }).catch(rethrowGmailRefreshError);
     const id = res.data.id;
     if (!id) throw new Error('import returned no message id');
     return id;
@@ -242,12 +246,12 @@ class GmailDestination implements Destination {
   async probe(): Promise<ProbeResult> {
     try {
       await this.ensureValidToken();
-      const res = await this.api.users.getProfile({ userId: 'me' });
+      const res = await this.api.users.getProfile({ userId: 'me' }).catch(rethrowGmailRefreshError);
       const email = res.data.emailAddress ?? '';
       this.cachedEmail = email;
       return { ok: true, email };
     } catch (err) {
-      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+      return { ok: false, error: formatError(err) };
     }
   }
 }

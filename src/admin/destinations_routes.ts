@@ -7,7 +7,7 @@ import {
   setGmailOAuthClient,
 } from '../settings.ts';
 import { audit } from '../audit.ts';
-import { publicOrigin } from '../ui/base_url.ts';
+import { gmailSetupUrls } from '../ui/oauth_setup.ts';
 
 type FormBody = {
   client_id?: string;
@@ -32,9 +32,6 @@ export async function registerAdminDestinationRoutes(
       .get(req.session.userId!) as { id: number; username: string; is_admin: number };
     const cfg = getGmailOAuthClient(app.db, app.appConfig.encryptionKeys);
 
-    const origin = publicOrigin(req, app.appConfig);
-    const defaultRedirect = `${origin}/destinations/gmail/callback`;
-
     return reply.view('admin/destinations_gmail.ejs', {
       user: { id: me.id, username: me.username, isAdmin: me.is_admin === 1 },
       csrfToken: token,
@@ -43,8 +40,7 @@ export async function registerAdminDestinationRoutes(
       client_id: cfg?.client_id ?? '',
       client_secret_mask: cfg ? maskSecret(cfg.client_secret) : '',
       redirect_uri: cfg?.redirect_uri ?? '',
-      suggested_origin: origin,
-      suggested_redirect_uri: defaultRedirect,
+      ...gmailSetupUrls(req, app.appConfig),
     });
   });
 
@@ -82,7 +78,7 @@ export async function registerAdminDestinationRoutes(
         req,
       });
       req.session.flash = clientSecret
-        ? 'Gmail OAuth client saved. Scroll down or click Connect Gmail to authorize a mailbox.'
+        ? 'Gmail OAuth client saved. Check that Google Audience says In production before connecting Gmail.'
         : 'Gmail OAuth client saved (client_secret kept).';
       return reply.redirect('/destinations#connect');
     },

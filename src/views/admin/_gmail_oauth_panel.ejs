@@ -1,64 +1,61 @@
 <details class="collapse collapse-arrow bg-base-200 border border-base-300 mb-4" <%= configured ? '' : 'open' %>>
   <summary class="collapse-title font-semibold">How to get these credentials from Google Cloud</summary>
   <div class="collapse-content prose-sm max-w-none">
-
-    <p class="text-sm text-base-content/60">One-time setup in Google Cloud. Mailsluice uses the Gmail API with a standard OAuth 2.0 Web-application flow -- no service account, no domain-wide delegation. Steps below match the Google Cloud console as of April 2026; if Google renames a page, the labels may drift.</p>
-
-    <ol class="list-decimal ml-5 space-y-3 mt-3">
+    <p>One-time setup for a personal-use Mailsluice installation. Complete these steps in order and publish the OAuth app before connecting Gmail. Mailsluice uses server-side OAuth 2.0 with offline access.</p>
+    <ol class="list-decimal ml-5 space-y-4 mt-3">
       <li>
-        <strong>Create / pick a project.</strong>
-        <a class="link link-primary" href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">console.cloud.google.com/projectcreate</a>. Make sure the project dropdown in the console title bar shows the one you want for the rest of the steps.
+        <strong>Check your public deployment URL.</strong>
+        <p>The values below use Mailsluice's resolved public base URL. Set <code>APP_PUBLIC_BASE_URL</code> to your public HTTPS address, especially behind a reverse proxy.</p>
+        <% if (!oauth_setup.pinned) { %><p class="text-warning">APP_PUBLIC_BASE_URL is not set: these suggestions come from request headers. Check them before copying.</p><% } %>
+        <% if (!oauth_setup.publicHttps) { %><p class="text-warning">These URLs may be local or invalid for public Google app information. Localhost can be used for development callbacks, but Google cannot fetch your local/private homepage. Configure a publicly reachable HTTPS deployment for these information pages.</p><% } %>
+        <p>Mailsluice cannot verify public reachability. Check the homepage and privacy page without logging in; reverse-proxy authentication and firewalls must also allow access.</p>
+      </li>
+      <li><strong>Create or select a Google Cloud project.</strong> Open <a class="link link-primary" href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud</a> and keep the same project selected for every step.</li>
+      <li><strong>Enable the Gmail API.</strong> Open <a class="link link-primary" href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener">API Library → Gmail API → Enable</a>.</li>
+      <li>
+        <strong>Complete Branding, including App domain.</strong>
+        <p>Open <a class="link link-primary" href="https://console.cloud.google.com/auth/branding" target="_blank" rel="noopener">Google Auth Platform → Branding</a>. If prompted to Get started, complete the initial setup with user type <strong>External</strong>. Enter an app name, user support email, and developer contact email.</p>
+        <p><strong>Do not skip App domain before the later Publish App step.</strong> Google documents these links for External production apps; missing information can cause setup or verification issues. Publishing your app in Audience is separate from verifying or publishing its branding.</p>
+        <p>Do not upload an app logo unless you need one; displaying custom branding may require Google's branding verification.</p>
+        <p><strong>Authorized domains — add this before the URLs:</strong></p>
+        <p>Deployment hostname: <code><%= oauth_setup.hostname || 'Unable to determine safely; check APP_PUBLIC_BASE_URL.' %></code></p>
+        <p>Enter the registrable (top private) domain you own or are authorized to use, without a scheme, port, or path. For example, <code>mailsluice.example.com</code> normally uses <code>example.com</code>; <code>mail.example.co.uk</code> uses <code>example.co.uk</code>. Mailsluice does not calculate this value: public suffixes and shared hosting domains vary. Follow Google's domain-ownership checks if requested.</p>
+        <label class="form-control mt-2"><span>Application home page</span><input aria-label="Application home page" class="input input-bordered w-full" readonly value="<%= oauth_setup.homepage %>"></label>
+        <label class="form-control mt-2"><span>Application privacy policy link</span><input aria-label="Application privacy policy link" class="input input-bordered w-full" readonly value="<%= oauth_setup.privacy %>"></label>
+        <p>Application terms of service: optional for a personal Mailsluice deployment.</p>
+        <p>The homepage and privacy page must be publicly reachable by Google. Both routes are intentionally public even when <code>APP_HTTP_AUTH</code> is enabled.</p>
       </li>
       <li>
-        <strong>Enable the Gmail API.</strong>
-        <a class="link link-primary" href="https://console.cloud.google.com/apis/library/gmail.googleapis.com" target="_blank" rel="noopener">API Library -&gt; Gmail API -&gt; Enable</a>.
-      </li>
-      <li>
-        <strong>Branding (app info).</strong>
-        <a class="link link-primary" href="https://console.cloud.google.com/auth/branding" target="_blank" rel="noopener">Auth Platform -&gt; Branding</a>. Fill the app name, user support email, and developer contact email. The app logo is optional.
-      </li>
-      <li>
-        <strong>Audience.</strong>
-        <a class="link link-primary" href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Auth Platform -&gt; Audience</a>:
-        <ul class="list-disc ml-5 mt-1">
-          <li>User type: <strong>External</strong>.</li>
-          <li>
-            Publishing status: click <strong>Publish App</strong> and confirm. Refresh tokens issued while the app is in <strong>Testing</strong> mode expire after 7 days, which makes Mailsluice silently stop importing one week after you connect Gmail (you would have to disconnect and reconnect every week). Publishing removes that fuse. You do <em>not</em> need Google's verification process if you only authorize accounts you own -- per <a class="link link-primary" href="https://support.google.com/cloud/answer/13464323" target="_blank" rel="noopener">Google's policy</a>, apps with fewer than 100 users do not need verification. You'll just click through an <em>"unverified app"</em> interstitial on first consent.
-          </li>
-          <li>Test users (only relevant if you keep it in Testing despite the above): add every Google account that will connect through this Mailsluice deployment (yourself at minimum). Anyone not on this list will get an <em>"access blocked"</em> error when they try to connect.</li>
+        <strong>Configure Data Access.</strong> Open <a class="link link-primary" href="https://console.cloud.google.com/auth/scopes" target="_blank" rel="noopener">Google Auth Platform → Data Access</a> and add the exact scopes Mailsluice requests:
+        <ul class="list-disc ml-5 mt-2">
+          <li><code>https://www.googleapis.com/auth/gmail.modify</code> — Restricted Gmail scope; used for importing messages and applying labels/read status.</li>
+          <li><code>https://www.googleapis.com/auth/gmail.labels</code> — Non-sensitive Gmail scope for labels.</li>
+          <li><code>https://www.googleapis.com/auth/userinfo.email</code> — Email identity permission; Mailsluice identifies the connected mailbox using its Gmail profile.</li>
         </ul>
+        <p>Verification-related warnings are expected with restricted Gmail access. The personal-use verification exception is separate from the publishing-status requirement.</p>
       </li>
       <li>
-        <strong>Data Access (scopes).</strong>
-        <a class="link link-primary" href="https://console.cloud.google.com/auth/scopes" target="_blank" rel="noopener">Auth Platform -&gt; Data Access</a>. Add these three scopes (they are what Mailsluice requests):
-        <ul class="list-disc ml-5 mt-1">
-          <li><code>https://www.googleapis.com/auth/gmail.modify</code></li>
-          <li><code>https://www.googleapis.com/auth/gmail.labels</code></li>
-          <li><code>https://www.googleapis.com/auth/userinfo.email</code></li>
-        </ul>
-        <p class="text-sm text-base-content/60 mt-1"><code>gmail.modify</code> and <code>gmail.labels</code> are sensitive scopes -- that is expected and does not require Google verification while the app stays in Testing mode.</p>
+        <strong>Publish the app in Audience.</strong>
+        <div role="alert" class="alert alert-warning my-3"><div>
+          <strong>IMPORTANT: do not leave this OAuth app in Testing.</strong>
+          <p>Testing → Gmail works initially → the refresh token expires after 7 days → Mailsluice cannot refresh access → you must reconnect Gmail.</p>
+          <p>In production removes the special 7-day Testing expiration. Tokens can still be revoked or invalidated for other reasons.</p>
+        </div></div>
+        <p>Open <a class="link link-primary" href="https://console.cloud.google.com/auth/audience" target="_blank" rel="noopener">Google Auth Platform → Audience → Publish App → Confirm</a>.</p>
+        <p><strong>Before connecting Gmail, manually check in Google Console:</strong></p>
+        <ul class="list-disc ml-5"><li>User type: <strong>External</strong></li><li>Publishing status: <strong>In production</strong></li><li>Verification may remain uncompleted for a qualifying personal-use deployment.</li></ul>
+        <p>If Google says “Your app requires verification”, that does not automatically mean a personal-use Mailsluice deployment must submit for verification. Google's exception covers your own personal use or a small group of personally known users, fewer than 100 users. It does not exempt arbitrary public apps with fewer than 100 users. Verification is not required solely to remove the Testing expiration.</p>
+        <p>See Google's <a class="link link-primary" href="https://support.google.com/cloud/answer/13464323" target="_blank" rel="noopener">personal-use exception</a> and <a class="link link-primary" href="https://support.google.com/cloud/answer/15549945" target="_blank" rel="noopener">Audience and 7-day expiration documentation</a>. Mailsluice cannot detect your project's publishing or verification status.</p>
       </li>
       <li>
-        <strong>Create the OAuth client.</strong>
-        <a class="link link-primary" href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Auth Platform -&gt; Clients -&gt; + Create client</a>:
-        <ul class="list-disc ml-5 mt-1">
-          <li><em>Application type:</em> <strong>Web application</strong></li>
-          <li><em>Name:</em> anything, e.g. <code>Mailsluice</code></li>
-          <li>
-            <em>Authorized JavaScript origins:</em>
-            <div class="mockup-code my-2 text-xs"><pre><code><%= suggested_origin %></code></pre></div>
-            <p class="text-sm text-base-content/60">If you will also access this deployment through another URL (e.g. behind a reverse proxy on a public hostname as well as via localhost), add each origin on its own line. Google matches these exactly.</p>
-          </li>
-          <li>
-            <em>Authorized redirect URIs:</em>
-            <div class="mockup-code my-2 text-xs"><pre><code><%= suggested_redirect_uri %></code></pre></div>
-            <p class="text-sm text-base-content/60">Add one redirect URI per environment (localhost for dev + your public URL for prod). One OAuth client holds many. The URI must match exactly -- trailing slash included.</p>
-          </li>
-        </ul>
+        <strong>Create the OAuth client.</strong> Open <a class="link link-primary" href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener">Google Auth Platform → Clients → Create client</a>.
+        <p>Application type: <strong>Web application</strong>. Name: for example, Mailsluice.</p>
+        <p><strong>Authorized JavaScript origins:</strong> not required by Mailsluice's server-side OAuth flow; leave this empty.</p>
+        <label class="form-control mt-2"><span>Authorized redirect URI</span><input aria-label="Authorized redirect URI" class="input input-bordered w-full" readonly value="<%= redirect_uri || suggested_redirect_uri %>"></label>
+        <p>The URI must match exactly, including scheme, hostname, port, path, and any trailing slash.</p>
+        <% if (redirect_uri) { %><p class="text-warning">Showing the saved redirect override. The default without that override is <code><%= suggested_redirect_uri %></code>.</p><% } %>
       </li>
-      <li>
-        <strong>Copy the client ID and client secret</strong> Google shows you after creating the client, and paste them into the form below. If you closed that dialog, you can reopen it from the Clients list (three-dot menu -&gt; <em>Download JSON</em>, or reveal the secret).
-      </li>
+      <li><strong>Save the client credentials, then connect Gmail.</strong> Copy/download the client ID and secret immediately when Google creates them, and paste them into the form below. Google only shows the full secret at creation; if lost, create a replacement secret. After saving, check that Audience says <strong>In production</strong>, then use <strong>Connect Gmail</strong>. If previously connected in Testing, use <strong>Reconnect</strong> once after publishing to obtain fresh authorization without removing sources.</li>
     </ol>
   </div>
 </details>
@@ -92,7 +89,7 @@
   <label class="form-control">
     <span class="label label-text">redirect_uri (optional override)</span>
     <input type="text" name="redirect_uri" value="<%= redirect_uri %>" class="input input-bordered w-full" autocomplete="off" placeholder="<%= suggested_redirect_uri %>">
-    <span class="label-text-alt text-base-content/60 mt-1">Leave blank to use <code><%= suggested_redirect_uri %></code> (derived from this request). Set it only if you have multiple redirect URIs in Google and want to force a specific one.</span>
+    <span class="label-text-alt text-base-content/60 mt-1">Leave blank to use <code><%= suggested_redirect_uri %></code> (from the resolved public base URL). Set it only if you have multiple redirect URIs in Google and want to force a specific one.</span>
   </label>
   <div>
     <button type="submit" class="btn btn-primary btn-sm">Save</button>

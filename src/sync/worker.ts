@@ -1,3 +1,5 @@
+import { formatError } from '../ui/errors.ts';
+export { sanitizeError } from '../ui/errors.ts';
 import type { Db } from '../db/index.ts';
 import type { Destination } from '../destinations/types.ts';
 import type { Clock } from './backoff.ts';
@@ -33,19 +35,9 @@ export interface SourceWorker {
   status(): SourceStatus;
 }
 
-export function sanitizeError(raw: string): string {
-  let s = raw.replace(/\r?\n/g, ' ');
-  // Common credential-bearing tokens in IMAP/POP protocol traces.
-  s = s.replace(/\b(PASS|LOGIN|AUTHENTICATE|AUTH|PLAIN|APOP)\b[^\n]*/gi, '$1 [redacted]');
-  s = s.replace(/\b(password|token|bearer|secret)\s*[:=]\s*\S+/gi, '$1=[redacted]');
-  if (s.length > 500) s = s.slice(0, 500) + '...';
-  return s;
-}
-
 export function recordLastError(db: Db, sourceId: number, err: unknown): void {
-  const raw = err instanceof Error ? err.message : String(err);
   db.prepare('UPDATE sources SET last_error = ? WHERE id = ?').run(
-    sanitizeError(raw),
+    formatError(err),
     sourceId,
   );
 }

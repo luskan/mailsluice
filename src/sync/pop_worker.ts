@@ -1,3 +1,4 @@
+import { formatError } from '../ui/errors.ts';
 import Pop3Command from 'node-pop3';
 import { simpleParser } from 'mailparser';
 import {
@@ -77,7 +78,7 @@ export class PopSourceWorker implements SourceWorker {
         await this.sleep(this.pop.pollIntervalSeconds * 1000);
       } catch (err) {
         if (!this.running) return;
-        this.lastError = err instanceof Error ? err.message : String(err);
+        this.lastError = formatError(err);
         recordLastError(this.deps.db, this.sourceId, err);
         this.deps.log('error', 'pop worker error, backing off', {
           sourceId: this.sourceId,

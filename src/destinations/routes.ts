@@ -9,6 +9,7 @@ import { getGmailOAuthClient, maskSecret } from '../settings.ts';
 import { relativeTime } from '../ui/time.ts';
 import { audit } from '../audit.ts';
 import { publicOrigin } from '../ui/base_url.ts';
+import { gmailSetupUrls } from '../ui/oauth_setup.ts';
 
 type DestinationRow = {
   id: number;
@@ -74,9 +75,6 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
     const rows = listForUser(app, user.id);
     const admin = getGmailOAuthClient(app.db, app.appConfig.encryptionKeys);
 
-    const origin = publicOrigin(req, app.appConfig);
-    const suggestedRedirectUri = `${origin}/destinations/gmail/callback`;
-
     return reply.view('destinations/list.ejs', {
       user,
       csrfToken: token,
@@ -94,8 +92,7 @@ export async function registerDestinationRoutes(app: FastifyInstance): Promise<v
       client_id: admin?.client_id ?? '',
       client_secret_mask: admin ? maskSecret(admin.client_secret) : '',
       redirect_uri: admin?.redirect_uri ?? '',
-      suggested_origin: origin,
-      suggested_redirect_uri: suggestedRedirectUri,
+      ...gmailSetupUrls(req, app.appConfig),
     });
   });
 

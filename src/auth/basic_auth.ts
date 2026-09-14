@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { isPublicInfoRequest } from '../ui/public_info.ts';
 
 type Credential = { user: Buffer; password: Buffer };
 
@@ -48,7 +49,7 @@ export function registerBasicAuth(app: FastifyInstance, spec: string): void {
 
   app.addHook('onRequest', async (req: FastifyRequest, reply: FastifyReply) => {
     const path = pathOnly(req.url);
-    if (path === '/health') return;
+    if (path === '/health' || isPublicInfoRequest(req.method, req.url)) return;
 
     const ip = req.ip;
     const now = Date.now();
