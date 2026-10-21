@@ -81,6 +81,40 @@ override `TRAEFIK_NETWORK`). Other overrides: `TRAEFIK_ENTRYPOINT`,
 source; for a prebuilt image behind Traefik, write your own compose using
 `ghcr.io/luskan/mailsluice:0.2`.
 
+#### Login returns `FST_CSRF_MISSING_SECRET` after a reboot
+
+Sessions and their CSRF secrets live in process memory. A restart signs users
+out and invalidates forms already open in the browser. Open `/login` again
+to obtain a fresh form and session cookie.
+
+If a freshly loaded form also fails (including in a private window), check
+the proxy address. Docker can assign Traefik a different IP after a restart.
+If `APP_TRUST_PROXY` still contains the old IP, Fastify ignores
+`X-Forwarded-Proto: https`. The Traefik overlay forces secure cookies, so the
+session plugin then refuses to save the session or issue its cookie.
+
+Run these read-only checks on the Docker host; the output excludes secrets:
+
+```bash
+docker inspect mailsluice --format '{{range .Config.Env}}{{println .}}{{end}}' | grep -E '^(APP_TRUST_PROXY|APP_COOKIE_SECURE)='
+docker network inspect $(docker inspect mailsluice --format '{{range $name, $_ := .NetworkSettings.Networks}}{{println $name}}{{end}}') --format '{{.Name}}: {{range .Containers}}{{.Name}}={{.IPv4Address}} {{end}}'
+```
+
+Compare `APP_TRUST_PROXY` with Traefik's address on the shared network.
+Set it in `.env` to the current trusted IP, then recreate the app container
+to apply the environment change (a plain `docker restart` does not apply it):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.traefik.yml up -d --no-deps --force-recreate mailsluice
+```
+
+For a lasting fix, assign Traefik a stable IP on that network, or trust the
+network CIDR only if every attached container is trusted. Keep
+`APP_COOKIE_SECURE=true`. Afterward, load `/login` again and verify its response
+sets `mailsluice.sid`. If the trusted address already matches, check that the
+proxy sends `X-Forwarded-Proto: https` and that the browser returns the session
+cookie on `POST /login`.
+
 ### Local (no Docker)
 
 ```
@@ -245,7 +279,8 @@ version shows in the app footer because `src/version.ts` reads
 - At rest: AES-256-GCM with per-row AAD binding -- copy-pasting ciphertext
   between rows won't decrypt. Key rotation via
   `APP_ENCRYPTION_KEY_PREV[_FILE]`.
-- CSRF on every mutation. Sessions in signed cookies, regenerated on login
+- CSRF on every mutation. Session IDs in signed cookies; session data lives
+  in process memory and is lost on restart. IDs are regenerated on login
   and password change.
 - Login limit: 5 / 15min per (user, IP); 20 / 15min per IP.
 - `@fastify/helmet` for CSP, frame-ancestors, Referrer-Policy, no-sniff.

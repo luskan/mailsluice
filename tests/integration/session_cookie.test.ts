@@ -15,6 +15,7 @@ test('session cookie has HttpOnly and SameSite=Lax in non-production', async () 
   const ctx = await makeTestApp();
   try {
     const res = await ctx.app.inject({ method: 'GET', url: '/login' });
+    assert.equal(res.headers['cache-control'], 'no-store');
     const line = setCookieHeaders(res.headers).find((c) =>
       c.startsWith('mailsluice.sid='),
     );

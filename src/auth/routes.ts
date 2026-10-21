@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { hashPassword, needsRehash, verifyPassword } from './hash.ts';
 import { audit } from '../audit.ts';
 
@@ -12,10 +12,20 @@ type UserRow = {
 };
 
 export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
-  app.get('/login', async (req, reply) => {
+  const showLogin = async (reply: FastifyReply, error: string | null = null, status = 200) => {
+    const req = reply.request;
+    if (app.appConfig.APP_COOKIE_SECURE === 'true' && req.protocol !== 'https') {
+      req.log.warn({
+        remoteAddress: req.raw.socket.remoteAddress,
+        trustedProxy: app.appConfig.APP_TRUST_PROXY,
+      }, 'Cannot save the secure session cookie: request is not recognized as HTTPS. Check APP_TRUST_PROXY and the proxy X-Forwarded-Proto header.');
+    }
+    reply.header('Cache-Control', 'no-store');
     const token = await reply.generateCsrf();
-    return reply.view('login.ejs', { csrfToken: token, error: null });
-  });
+    return reply.code(status).view('login.ejs', { csrfToken: token, error });
+  };
+
+  app.get('/login', async (_req, reply) => showLogin(reply));
 
   // Per-IP cap to block credential-stuffing that rotates usernames from one IP.
   // The plugin's own per-(user, IP) limiter handles the other axis.
@@ -49,6 +59,17 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     '/login',
     {
       preHandler: [app.csrfProtection, perIpPreHandler],
+      errorHandler: async (error, req, reply) => {
+        if (
+          req.headers.accept?.includes('text/html') &&
+          (error.code === 'FST_CSRF_MISSING_SECRET' || error.code === 'FST_CSRF_INVALID_TOKEN')
+        ) {
+          // Reject this submission, then give the browser a fresh form/session.
+          // Never retry the credentials from a request that failed CSRF checks.
+          return showLogin(reply, 'Your sign-in form expired or your session cookie is missing. Please try signing in again.', 403);
+        }
+        throw error;
+      },
       config: {
         rateLimit: {
           max: 5,
@@ -63,10 +84,7 @@ export async function registerAuthRoutes(app: FastifyInstance): Promise<void> {
     },
     async (req, reply) => {
       const { username, password } = req.body ?? {};
-      const fail = async (msg: string) => {
-        const token = await reply.generateCsrf();
-        return reply.code(401).view('login.ejs', { csrfToken: token, error: msg });
-      };
+      const fail = (msg: string) => showLogin(reply, msg, 401);
       if (typeof username !== 'string' || typeof password !== 'string') {
         return fail('Username and password required.');
       }

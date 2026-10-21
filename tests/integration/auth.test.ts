@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { hashPassword } from '../../src/auth/hash.ts';
+import { buildApp } from '../../src/app.ts';
 import { closeTestApp, makeTestApp } from '../helpers/app.ts';
 
 async function seedUser(
@@ -68,6 +69,100 @@ test('POST /login without CSRF token is rejected', async () => {
       payload: 'username=u1&password=hunter2!',
     });
     assert.equal(res.statusCode, 403);
+    assert.equal(res.json().code, 'FST_CSRF_INVALID_TOKEN');
+  } finally {
+    await closeTestApp(ctx);
+  }
+});
+
+test('a login form opened before a restart recovers without authenticating the stale submission', async () => {
+  const ctx = await makeTestApp();
+  try {
+    await seedUser(ctx.db, 'u1', 'hunter2!');
+    const { cookie, token } = await getLoginTokenAndCookie(ctx.app);
+
+    // The database and signing secret survive a restart; the session store does not.
+    await ctx.app.close();
+    ctx.app = await buildApp(ctx.cfg, ctx.db);
+    const stale = await ctx.app.inject({
+      method: 'POST',
+      url: '/login',
+      headers: { cookie, accept: 'text/html', 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({ _csrf: token, username: 'u1', password: 'hunter2!' }).toString(),
+    });
+    assert.equal(stale.statusCode, 403);
+    assert.match(String(stale.headers['content-type']), /text\/html/);
+    assert.equal(stale.headers['cache-control'], 'no-store');
+    assert.match(stale.body, /sign-in form expired or your session cookie is missing/i);
+    assert.doesNotMatch(stale.body, /hunter2!/);
+
+    const recoveryCookie = pickCookie(stale.headers, 'mailsluice.sid');
+    const recoveryToken = /name="_csrf" value="([^"]+)"/.exec(stale.body)?.[1];
+    assert.ok(recoveryCookie, 'recovery must issue a new session cookie');
+    assert.ok(recoveryToken, 'recovery must issue a fresh csrf token');
+    assert.notEqual(recoveryCookie, cookie);
+    const anonymous = await ctx.app.inject({
+      url: '/', headers: { cookie: recoveryCookie, accept: 'text/html' },
+    });
+    assert.equal(anonymous.statusCode, 302);
+    assert.equal(anonymous.headers.location, '/login');
+
+    const retry = await ctx.app.inject({
+      method: 'POST',
+      url: '/login',
+      headers: { cookie: recoveryCookie, accept: 'text/html', 'content-type': 'application/x-www-form-urlencoded' },
+      payload: new URLSearchParams({ _csrf: recoveryToken, username: 'u1', password: 'hunter2!' }).toString(),
+    });
+    assert.equal(retry.statusCode, 302);
+    assert.equal(retry.headers.location, '/');
+    const loggedInCookie = pickCookie(retry.headers, 'mailsluice.sid');
+    assert.ok(loggedInCookie);
+    const home = await ctx.app.inject({
+      url: '/', headers: { cookie: loggedInCookie, accept: 'text/html' },
+    });
+    assert.equal(home.statusCode, 200);
+    assert.match(home.body, /Welcome, u1/);
+  } finally {
+    await closeTestApp(ctx);
+  }
+});
+
+test('browser login with a missing or mismatched CSRF token returns a fresh form and stays anonymous', async () => {
+  const ctx = await makeTestApp();
+  try {
+    await seedUser(ctx.db, 'u1', 'hunter2!');
+    const { token: otherSessionToken } = await getLoginTokenAndCookie(ctx.app);
+    for (const token of ['', otherSessionToken]) {
+      const { cookie } = await getLoginTokenAndCookie(ctx.app);
+      const res = await ctx.app.inject({
+        method: 'POST',
+        url: '/login',
+        headers: { cookie, accept: 'text/html', 'content-type': 'application/x-www-form-urlencoded' },
+        payload: new URLSearchParams({ _csrf: token, username: 'u1', password: 'hunter2!' }).toString(),
+      });
+      assert.equal(res.statusCode, 403);
+      assert.match(String(res.headers['content-type']), /text\/html/);
+      assert.ok(/name="_csrf" value="([^"]+)"/.exec(res.body)?.[1]);
+      const home = await ctx.app.inject({
+        url: '/', headers: { cookie, accept: 'text/html' },
+      });
+      assert.equal(home.statusCode, 302);
+      assert.equal(home.headers.location, '/login');
+    }
+  } finally {
+    await closeTestApp(ctx);
+  }
+});
+
+test('login without a session keeps the CSRF JSON error for non-browser clients', async () => {
+  const ctx = await makeTestApp();
+  try {
+    const res = await ctx.app.inject({
+      method: 'POST', url: '/login', headers: { accept: 'application/json' },
+      payload: { username: 'u1', password: 'hunter2!', _csrf: 'stale' },
+    });
+    assert.equal(res.statusCode, 403);
+    assert.equal(res.json().code, 'FST_CSRF_MISSING_SECRET');
   } finally {
     await closeTestApp(ctx);
   }
@@ -116,6 +211,7 @@ test('POST /login with wrong password returns 401 and no session', async () => {
       payload: `_csrf=${encodeURIComponent(token)}&username=u1&password=wrong`,
     });
     assert.equal(res.statusCode, 401);
+    assert.equal(res.headers['cache-control'], 'no-store');
     assert.match(res.body, /Invalid username or password/);
 
     const home = await ctx.app.inject({
