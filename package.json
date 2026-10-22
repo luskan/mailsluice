@@ -21,7 +21,7 @@
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
-    "@fastify/csrf-protection": "^7.1.0",
+    "@fastify/csrf-protection": "^8.0.2",
     "@fastify/formbody": "^8.0.2",
     "@fastify/helmet": "^13.0.2",
     "@fastify/rate-limit": "^10.3.0",
