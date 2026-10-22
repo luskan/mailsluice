@@ -7,6 +7,14 @@ services:
     # Run as the host user so the bind-mounted ./data is writable without
     # UID gymnastics. Override via APP_UID/APP_GID in the shell environment.
     user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    # The app only writes to /app/data (SQLite) and /tmp (SQLite temp files).
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "3000:3000"
     volumes:

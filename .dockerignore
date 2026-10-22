@@ -1,0 +1,12 @@
+# Keep secrets, local data and host build output out of the build context.
+.env
+.env.*
+data/
+node_modules/
+dist/
+coverage/
+.git/
+*.log
+.mailsluice.pid
+.mailsluice.out
+.DS_Store

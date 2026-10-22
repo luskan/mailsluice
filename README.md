@@ -28,6 +28,8 @@ docker run -d --name mailsluice \
   -p 3000:3000 \
   -v mailsluice-data:/app/data \
   --env-file .env \
+  --read-only --tmpfs /tmp \
+  --cap-drop ALL --security-opt no-new-privileges \
   --restart unless-stopped \
   ghcr.io/luskan/mailsluice:0.2
 
@@ -137,8 +139,8 @@ listed scopes and a **Web application** OAuth client. JavaScript origins
 are not required. Save the client ID and secret immediately when Google
 creates them; Mailsluice stores them encrypted in SQLite.
 
-**Publish before connecting Gmail:** Google Auth Platform → Audience →
-Publish App → Confirm. Manually check **External / In production**.
+**Publish before connecting Gmail:** Google Auth Platform -> Audience ->
+Publish App -> Confirm. Manually check **External / In production**.
 In **Testing**, Gmail authorizations and refresh tokens expire after
 **7 days**. In production removes that special Testing expiration;
 tokens can still be revoked or invalidated for other reasons.
@@ -153,7 +155,7 @@ own installation, choose Advanced and continue if Google offers that option.
 The warning does not indicate Testing mode; do not switch back to Testing
 or submit for verification solely to avoid the 7-day expiration.
 
-Then use **Connect Gmail**, followed by **Sources → Add source**.
+Then use **Connect Gmail**, followed by **Sources -> Add source**.
 If Gmail was originally connected while Testing, publish first and click
 **Reconnect** once to obtain fresh authorization while keeping sources and
 import history. **Disconnect** removes attached sources and their history.
@@ -206,6 +208,8 @@ docker run -d --name mailsluice \
   -p 3000:3000 \
   -v mailsluice-data:/app/data \
   --env-file .env \
+  --read-only --tmpfs /tmp \
+  --cap-drop ALL --security-opt no-new-privileges \
   --restart unless-stopped \
   ghcr.io/luskan/mailsluice:0.2
 ```
@@ -284,6 +288,9 @@ version shows in the app footer because `src/version.ts` reads
   and password change.
 - Login limit: 5 / 15min per (user, IP); 20 / 15min per IP.
 - `@fastify/helmet` for CSP, frame-ancestors, Referrer-Policy, no-sniff.
+- Container runs as a non-root user with a read-only root filesystem, no
+  Linux capabilities, and `no-new-privileges` (Compose and the `docker run`
+  examples above).
 - SSRF guard rejects loopback / RFC1918 / link-local / CGNAT / multicast
   source hosts (covers `169.254.169.254` cloud-metadata) unless
   `APP_ALLOW_PRIVATE_SOURCES=1`.
